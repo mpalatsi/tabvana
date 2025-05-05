@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>FoxBoard New Tab</title>
+  <link rel="stylesheet" href="styles/newtab.css">
+</head>
+<body>
+  <div id="top-bar">
+    <div class="top-bar-content">
+      <div id="top-left-info">
+        <span id="time-display">--:-- --</span>
+        <span class="divider">|</span>
+        <span id="weather-display">--°C</span>
+      </div>
+      <!-- Greeting instead of Search Bar -->
+      <span id="greeting-display" class="top-bar-greeting"></span> 
+      <!-- End Greeting -->
+      <div id="top-right-info">
+          <span id="date-display"></span> 
+          <button id="settings-toggle-button" title="Settings">☰</button>
+      </div>
+    </div> <!-- Correct closing div location -->
+  </div>
+  <div id="background-container"></div>
+  <div id="app">
+    <div id="main-content">
+      <!-- Search Bar added here -->
+      <div class="search-container">
+        <form id="search-form">
+          <input type="text" id="search-input" placeholder="Search the web...">
+          <!-- Optional: Add a submit button or handle submit on Enter key in JS -->
+        </form>
+      </div>
+      <!-- End Search Bar -->
+
+      <!-- Greeting removed from here -->
+      <!-- Container for bookmarks -->
+      <div id="bookmark-grid-container">
+          <p class="empty-grid-message">Select a category below.</p> <!-- Add a default message -->
+      </div>
+    </div>
+    <div id="category-bar">
+      <!-- Category buttons/icons will go here -->
+    </div>
+  </div>
+
+  <div id="settings-panel">
+    <h2>Settings</h2>
+    <button id="settings-close-button" title="Close Settings">×</button>
+    <div class="setting-item">
+      <label for="unsplash-api-key-input">Unsplash Access Key:</label>
+      <input type="password" id="unsplash-api-key-input" placeholder="Enter your key">
+      <p class="help-text">Get a key from <a href="https://unsplash.com/developers" target="_blank" rel="noopener noreferrer">Unsplash Developers</a>. Required for dynamic backgrounds.</p>
+    </div>
+
+    <div class="setting-item">
+      <label for="unsplash-theme-input">Background Theme:</label>
+      <select id="unsplash-theme-select"></select>
+    </div>
+
+    <div class="setting-item">
+        <label for="unsplash-quality-select">Image Quality:</label>
+        <select id="unsplash-quality-select">
+            <option value="Standard">Standard (Faster Load)</option>
+            <option value="High">High (Best Quality)</option>
+        </select>
+    </div>
+
+    <div class="setting-item">
+        <label for="user-name-input">Your Name:</label>
+        <input type="text" id="user-name-input" placeholder="(Optional)">
+    </div>
+
+    <div class="setting-item">
+        <label for="temperature-unit-select">Temperature Unit:</label>
+        <select id="temperature-unit-select">
+            <option value="metric">Celsius (°C)</option>
+            <option value="imperial">Fahrenheit (°F)</option>
+        </select>
+    </div>
+
+    <!-- Search Engine Setting -->
+    <div class="setting-item">
+      <label for="search-engine-select">Search Engine:</label>
+      <select id="search-engine-select"></select>
+    </div>
+    <!-- End Search Engine Setting -->
+
+    <!-- Category Management -->
+    <div class="setting-section" id="category-management-section">
+        <h3>Manage Categories</h3>
+        <button id="import-firefox-bookmarks-button" class="setting-item-button secondary">Import Firefox Bookmarks</button>
+        <ul id="category-list"></ul>
+        <div class="add-category-form">
+            <input type="text" id="new-category-name" placeholder="New category name">
+            <button id="add-category-button">Add Category</button>
+        </div>
+    </div>
+
+    <!-- Bookmark Management (Placeholder) -->
+    <div class="setting-section" id="bookmark-management-section" style="display: none;">
+        <h3 id="bookmark-section-title">Manage Bookmarks in Category</h3>
+        <ul id="bookmark-list"></ul>
+        <div class="add-bookmark-form">
+             <input type="text" id="new-bookmark-title" placeholder="Title">
+             <input type="text" id="new-bookmark-url" placeholder="URL (https://...)">
+             <button id="add-bookmark-button">Add Bookmark</button>
+        </div>
+         <button id="back-to-categories-button">Back to Categories</button>
+    </div>
+
+    <!-- Global Save Button (Now saves everything) -->
+    <div class="settings-save-container">
+        <button id="save-settings-button">Save All Settings</button>
+    </div>
+
+    <!-- More settings will go here -->
+  </div>
+
+  <!-- Import Bookmarks Modal -->
+  <div id="import-modal-overlay" class="modal-overlay">
+    <div id="import-modal" class="modal-content">
+      <h2>Select Folders to Import</h2>
+      <p>Choose which top-level bookmark folders you want to import as categories.</p>
+      <div id="import-folder-list" class="modal-folder-list">
+        <!-- Checkboxes will be populated here -->
+      </div>
+      <div class="modal-controls">
+        <button id="import-select-all-button">Select All</button>
+        <button id="import-select-none-button">Select None</button>
+      </div>
+      <div class="modal-actions">
+        <button id="import-confirm-button" class="primary">Import Selected</button>
+        <button id="import-cancel-button">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <!-- End Import Bookmarks Modal -->
+
+  <script src="newtab.js" type="module"></script> 
+</body>
+</html>

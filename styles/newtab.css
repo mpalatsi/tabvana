@@ -1,0 +1,631 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+  color: #333;
+}
+
+body {
+  background-color: #f0f0f0; /* Placeholder background */
+}
+
+#background-container {
+  position: fixed; /* Position relative to the viewport */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1; /* Place it behind other content */
+  background-size: cover; /* Cover the entire container */
+  background-position: center; /* Center the image */
+  background-repeat: no-repeat;
+  transition: background-image 0.5s ease-in-out; /* Smooth transition */
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  padding: 60px 0 70px 0; /* Add top padding for fixed top-bar, keep bottom for category bar */
+  box-sizing: border-box;
+}
+
+#main-content {
+  flex-grow: 1; /* Takes up available space */
+  padding: 0 20px 20px 20px; /* Remove top padding, keep others */
+  overflow-y: auto; /* Allow scrolling if content overflows */
+  text-align: center;
+  color: #ffffff; /* Make default text white for better visibility on image */
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4); /* Add shadow for readability */
+  max-width: 1200px; /* Apply max-width */
+  margin: 0 auto; /* Center the main content area */
+}
+
+#main-content h2 {
+  margin-top: 20px; /* Add some space below the top bar */
+  margin-bottom: 30px; /* Add space below the greeting */
+  font-size: 2.5em; /* Make greeting larger */
+  padding: 0; /* Remove specific padding */
+  background-color: transparent; /* Remove background */
+  /* Text align is inherited from #main-content */
+}
+
+/* Category Heading Specific Styling (if needed) */
+#main-content h2#category-content-heading {
+    background-color: transparent; /* Ensure category headings don't get the background */
+    padding: 0;
+    margin-top: 20px; /* Reset margin */
+    margin-left: auto; /* Still center */
+    margin-right: auto; /* Still center */
+    font-size: 2em; /* Adjust size */
+}
+
+#category-bar {
+  flex-shrink: 0; /* Prevent shrinking */
+  background-color: transparent; /* Make bar transparent */
+  padding: 10px;
+  text-align: center;
+  border-top: none; /* Remove top border */
+  display: flex; /* Use flex for items inside the bar */
+  justify-content: center; /* Center items horizontally */
+  gap: 15px; /* Space between category items */
+  position: fixed; /* Keep it fixed at the bottom */
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding: 15px 10px; /* Adjust padding */
+}
+
+/* Placeholder for category items */
+.category-item {
+  padding: 8px 20px; /* Adjust padding for pill shape */
+  border: none; /* Remove border */
+  background-color: rgba(0, 0, 0, 0.4); /* Darker semi-transparent background */
+  color: #ffffff; /* White text */
+  border-radius: 20px; /* Pill shape */
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.category-item:hover {
+  background-color: rgba(0, 0, 0, 0.6); /* Darken on hover */
+}
+
+/* Style for the active category */
+.category-item.active {
+  background-color: rgba(0, 123, 255, 0.7); /* Example active color - semi-transparent */
+  color: white;
+  border-color: transparent; /* Remove border for active */
+}
+
+/* --- Top Bar --- */
+#top-bar {
+  position: fixed; /* Keep it fixed at the top */
+  top: 0;
+  left: 0;
+  width: 100%;
+  padding: 10px 20px;
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  color: #ffffff;
+  display: flex; /* Use flexbox */
+  justify-content: space-between; /* Space out children */
+  align-items: center; /* Vertically align items */
+  z-index: 1000; /* Ensure it's above background */
+  box-sizing: border-box;
+}
+
+/* Add a wrapper INSIDE top-bar for content alignment */
+.top-bar-content {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 1200px; /* Keep max-width for alignment with main-content */
+    margin: 0 auto; /* Keep centering the whole bar content */
+    gap: 20px; /* Add gap between the main sections */
+}
+
+/* --- Top Left Info (Now inside Top Bar) --- */
+#top-left-info {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Space between time and weather */
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4); /* Add shadow for readability */
+  max-width: 1200px; /* Apply max-width */
+  margin-left: auto; /* Use auto margins to center */
+  margin-right: auto;
+  /* Keep padding: 0 20px 20px 20px; or adjust if needed */
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+/* Ensure divider is visible */
+#top-left-info .divider {
+  opacity: 0.6; /* Keep it slightly faded */
+  margin: 0 5px; /* Add a little horizontal space around it */
+  display: inline-block; /* Ensure it takes up space */
+}
+
+/* Example for weather icon - replace with actual icon font/SVG later */
+#weather-display::before {
+  content: "☀️"; /* Placeholder icon */
+  margin-right: 5px;
+  opacity: 0.8;
+}
+
+/* Style for the new right-side group */
+#top-right-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-left: auto; /* Push this group to the far right */
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+/* Remove margin from date-display as gap handles it */
+#date-display {
+    margin-right: 0; /* Remove margin, gap is used now */
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+/* --- Top Bar Greeting Styles --- */
+#greeting-display.top-bar-greeting {
+    flex-grow: 1; /* Allow greeting to fill space */
+    text-align: center; /* Center the text */
+    font-size: 1.2em; /* Make greeting slightly larger */
+    font-weight: 500; /* Medium weight */
+    color: #ffffff; /* Ensure white color */
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4); /* Match other top bar text */
+    margin: 0 15px; /* Add some horizontal margin */
+    white-space: nowrap; /* Prevent wrapping */
+    overflow: hidden; /* Hide overflow */
+    text-overflow: ellipsis; /* Add ellipsis if too long */
+}
+
+/* --- Settings Panel --- */
+
+#settings-toggle-button {
+  background: transparent; /* Simpler background within bar */
+  border: none;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  color: inherit; /* Inherit from top-bar */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease; /* Transition opacity instead */
+  flex-shrink: 0; /* Restore shrinking prevention */
+}
+
+#settings-toggle-button:hover {
+  color: inherit; /* Keep color */
+  opacity: 0.8; /* Slightly fade on hover */
+}
+
+#settings-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 350px; /* Adjusted width */
+  height: 100vh; /* Full height */
+  background-color: #f8f9fa; /* Light background color */
+  box-shadow: -3px 0 15px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  padding: 25px;
+  box-sizing: border-box;
+  transform: translateX(100%); /* Start hidden */
+  transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1); /* Smoother transition */
+  overflow-y: auto;
+  color: #212529; /* Dark text color for readability */
+}
+
+#settings-panel.visible {
+  transform: translateX(0);
+}
+
+#settings-panel h2 {
+  margin-top: 0;
+  margin-bottom: 25px;
+  text-align: center;
+}
+
+#settings-close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #888;
+}
+
+#settings-close-button:hover {
+  color: #333;
+}
+
+.setting-item {
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.setting-item label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.setting-item input[type="password"], 
+.setting-item input[type="text"], 
+.setting-item select {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.setting-item button {
+  padding: 8px 15px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.setting-item button:hover {
+  background-color: #0056b3;
+}
+
+/* Add a secondary button style */
+.setting-item-button.secondary {
+    background-color: #e9ecef; /* Lighter grey background */
+    color: #495057; /* Darker text */
+    border: 1px solid #ced4da; /* Subtle border */
+    margin-bottom: 15px; /* Add space below */
+    padding: 8px 15px; /* Match primary button padding */
+    cursor: pointer; /* Ensure cursor is pointer */
+    border-radius: 4px; /* Match primary button radius */
+    transition: background-color 0.2s ease, border-color 0.2s ease; /* Add transitions */
+}
+
+.setting-item-button.secondary:hover {
+    background-color: #dee2e6; /* Slightly darker grey on hover */
+    border-color: #adb5bd;
+}
+
+.setting-item .help-text {
+  font-size: 0.9em;
+  color: #666;
+  margin-top: 10px;
+}
+
+.setting-item .help-text a {
+  color: #007bff;
+}
+
+/* --- Settings Sections --- */
+.setting-section {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6; /* Separator */
+}
+
+.setting-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    color: #495057;
+}
+
+/* --- Category/Bookmark Management List Styling --- */
+#category-list, #bookmark-list {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 15px;
+}
+
+#category-list li, #bookmark-list li {
+    display: flex;
+    flex-direction: column; /* Stack name and controls vertically */
+    align-items: flex-start; /* Align items to the left */
+    padding: 10px 5px;
+    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 5px;
+    gap: 10px; /* Add gap between name and controls */
+}
+
+#category-list li .category-name, 
+#bookmark-list li .bookmark-details {
+    word-break: break-word; /* Allow long words to break if needed */
+    font-weight: 500; /* Make name slightly bolder */
+    margin-bottom: 8px; /* Space between name and buttons */
+}
+
+#bookmark-list li .bookmark-details {
+    margin-bottom: 5px; /* Add space below details before controls */
+}
+
+#bookmark-list li .bookmark-url {
+    font-size: 0.85em;
+    color: #6c757d; /* Muted color for URL */
+    margin-left: 5px;
+}
+
+.category-item-controls, .bookmark-item-controls {
+    display: flex; /* Align buttons horizontally */
+    gap: 8px; /* Space between buttons */
+    width: 100%; /* Make controls take full width */
+}
+
+.category-item-controls button, .bookmark-item-controls button {
+    background-color: #f8f9fa; /* Light background */
+    border: 1px solid #dee2e6; /* Subtle border */
+    cursor: pointer;
+    font-size: 0.85em; /* Slightly smaller text */
+    margin-left: 0; /* Remove previous margin */
+    padding: 4px 8px; /* Adjust padding */
+    border-radius: 4px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+    line-height: 1.2; /* Adjust line height */
+}
+
+.category-item-controls button:hover, .bookmark-item-controls button:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+/* Keep specific colors but remove text-decoration if any */
+.edit-category-button, .edit-bookmark-button {
+   color: #007bff; 
+   text-decoration: none;
+}
+.delete-category-button, .delete-bookmark-button {
+   color: #dc3545; 
+   background-color: #f8d7da; /* Light red hint */
+   border-color: #f5c6cb;
+   text-decoration: none;
+}
+.delete-category-button:hover, .delete-bookmark-button:hover {
+    background-color: #f1b0b7; 
+    border-color: #ee9a9a;
+    color: #721c24; /* Darker red on hover */
+}
+
+.manage-bookmarks-button {
+    color: #28a745; 
+    text-decoration: none;
+}
+
+
+/* --- Add Category/Bookmark Form Styling --- */
+.add-category-form, .add-bookmark-form {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap; /* Allow wrapping */
+}
+
+.add-category-form input, .add-bookmark-form input {
+    flex-grow: 1;
+    min-width: 150px; /* Prevent input from becoming too small */
+}
+
+.add-category-form button, .add-bookmark-form button {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    /* Use primary button style */
+}
+
+/* Minor adjustment for bookmark form inputs */
+.add-bookmark-form input#new-bookmark-title {
+    flex-basis: 40%; /* Suggest smaller size for title */
+}
+.add-bookmark-form input#new-bookmark-url {
+    flex-basis: 50%; /* Suggest larger size for URL */
+}
+
+
+/* --- Settings Save Container --- */
+.settings-save-container {
+  margin-top: 30px; /* Space above the button */
+  text-align: center; /* Center the button */
+  border-top: 1px solid #eee; /* Separator line */
+  padding-top: 20px;
+}
+
+.settings-save-container button {
+   width: 80%; /* Make button wider */
+   padding: 12px 15px; /* Make button taller */
+   font-size: 1.1em;
+}
+
+/* --- Bookmark Grid Styling --- */
+.bookmark-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); /* Increased min size */
+    gap: 20px;
+    padding: 20px;
+    justify-content: center; /* Center grid items if they don't fill the space */
+    max-width: 1200px; /* Limit max width */
+    margin: 20px auto; /* Center the grid */
+}
+
+.bookmark-item {
+    background-color: rgba(0, 0, 0, 0.4); /* Match category buttons */
+    padding: 15px; /* Keep padding */
+    border-radius: 8px;
+    /* text-align: center; No longer needed with flex */
+    color: #ffffff;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    /* display: block; Replaced by flex */
+    display: flex; /* Use flexbox */
+    flex-direction: column; /* Stack items vertically */
+    align-items: center; /* Center horizontally */
+    justify-content: center; /* Center vertically */
+    min-height: 100px; /* Increased min height */
+}
+
+.bookmark-item:hover {
+    background-color: rgba(0, 0, 0, 0.6); /* Darken on hover */
+}
+
+.bookmark-item img {
+    width: 48px; /* Increased icon size */
+    height: 48px; /* Increased icon size */
+    margin-bottom: 10px; /* Increased space between icon and text */
+    object-fit: contain; /* Prevent distortion */
+}
+
+.bookmark-item span {
+    display: block; /* Keep as block for potential wrapping */
+    font-size: 0.9em; /* Adjust text size if needed */
+    word-break: break-word; /* Allow long titles to wrap */
+}
+
+/* Styling for the message when the bookmark grid is empty */
+.empty-grid-message {
+  margin-top: 30px; /* Adjust spacing as needed */
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* --- Import Modal Styles --- */
+
+.modal-overlay {
+  display: none; /* Hidden by default */
+  position: fixed; /* Stay in place */
+  left: 0;
+  top: 0;
+  width: 100%; /* Full width */
+  height: 100%; /* Full height */
+  overflow: auto; /* Enable scroll if needed */
+  background-color: rgba(0,0,0,0.5); /* Black w/ opacity */
+  z-index: 1500; /* Sit on top */
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: #fefefe;
+  margin: auto; /* Center horizontally/vertically */
+  padding: 25px;
+  border: 1px solid #888;
+  width: 80%; /* Could be more specific */
+  max-width: 500px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  color: #333; /* Reset color for modal content */
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  text-align: center;
+}
+
+.modal-folder-list {
+  max-height: 300px; /* Limit height and allow scroll */
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin-bottom: 15px;
+  background-color: #fff;
+}
+
+.modal-folder-list label {
+  display: block; /* Each item on its own line */
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.modal-folder-list input[type="checkbox"] {
+  margin-right: 10px;
+}
+
+.modal-controls {
+  text-align: right;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
+}
+
+.modal-controls button {
+  margin-left: 10px;
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.modal-actions {
+  text-align: right;
+}
+
+.modal-actions button {
+  padding: 10px 20px;
+  margin-left: 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modal-actions button.primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.modal-actions button.primary:hover {
+  background-color: #0056b3;
+}
+
+.modal-actions button:not(.primary) {
+  background-color: #6c757d;
+  color: white;
+}
+
+.modal-actions button:not(.primary):hover {
+  background-color: #5a6268;
+}
+
+/* --- Search Bar Styles --- */
+.search-container {
+  text-align: center; /* Center the form */
+  margin-top: 2vh; /* Add some space below the top bar */
+  margin-bottom: 2vh; /* Add some space above the bookmark grid */
+}
+
+#search-form {
+  display: inline-block; /* Allow centering */
+}
+
+#search-input {
+  padding: 10px 15px;
+  font-size: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.3); /* Subtle border */
+  border-radius: 20px; /* Rounded corners */
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+  color: #fff; /* White text */
+  width: 400px; /* Adjust width as needed */
+  max-width: 80%; /* Prevent excessive width on large screens */
+  outline: none; /* Remove default focus outline */
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+#search-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+#search-input:focus {
+  background-color: rgba(0, 0, 0, 0.7);
+  border-color: rgba(255, 255, 255, 0.6);
+}

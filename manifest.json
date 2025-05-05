@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "FoxBoard",
+  "version": "0.1.0",
+  "description": "A customizable new tab page for Firefox.",
+  "icons": {
+    "48": "assets/icons/icon-48.png",
+    "96": "assets/icons/icon-96.png"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "permissions": [
+    "bookmarks",
+    "storage",
+    "tabs",
+    "topSites" 
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://*.google.com https://www.google.com https://*.gstatic.com https://images.unsplash.com data: https:;"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "assets/backgrounds/*.jpg", 
+        "assets/backgrounds/*.jpeg", 
+        "assets/backgrounds/*.png",
+        "assets/icons/*.png"
+      ],
+      "matches": ["<all_urls>"] 
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "foxboard@your-chosen-identifier.com",
+      "strict_min_version": "..."
+    }
+  }
+}
