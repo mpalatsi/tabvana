@@ -1,11 +1,14 @@
 {
   "manifest_version": 3,
   "name": "FoxBoard",
-  "version": "0.1.0",
-  "description": "A customizable new tab page for Firefox.",
+  "version": "1.0.0",
+  "description": "FoxBoard transforms your Firefox new tab into a personalized dashboard with icon-based bookmark management, collapsible categories, dynamic Unsplash backgrounds, time/date display, and user settings.",
   "icons": {
+    "16": "assets/icons/icon-16.png",
+    "32": "assets/icons/icon-32.png",
     "48": "assets/icons/icon-48.png",
-    "96": "assets/icons/icon-96.png"
+    "96": "assets/icons/icon-96.png",
+    "128": "assets/icons/icon-128.png"
   },
   "chrome_url_overrides": {
     "newtab": "newtab.html"
@@ -20,7 +23,7 @@
     "scripts": ["background.js"]
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://*.google.com https://www.google.com https://*.gstatic.com https://images.unsplash.com data: https:;"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://www.google.com https://*.gstatic.com https://images.unsplash.com data: https:;"
   },
   "web_accessible_resources": [
     {
@@ -35,7 +38,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "foxboard@your-chosen-identifier.com",
+      "id": "foxboard@mpalatsi",
       "strict_min_version": "..."
     }
   }

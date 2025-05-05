@@ -1,7 +1,7 @@
 // No longer importing bookmarkGrid initially
 // import { renderBookmarkGrid } from './components/bookmarkGrid.js';
 import { setUnsplashBackground } from './components/unsplashBackground.js';
-import { renderBookmarkGrid } from './components/bookmarkGrid.js';
+import { renderBookmarkGrid, renderTopSitesGrid } from './components/bookmarkGrid.js';
 
 console.log('FoxBoard newtab.js loaded');
 
@@ -66,6 +66,109 @@ function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
+// === Logic to toggle favorite status === 
+// MOVED EARLIER
+async function handleToggleFavorite(categoryId, bookmarkId) {
+  console.log(`[handleToggleFavorite] Attempting to toggle fav for CatID: ${categoryId}, BM ID: ${bookmarkId}`);
+  let bookmarkFound = false;
+  try {
+    const category = foxboardData.categories.find(c => c.id === categoryId);
+    console.log(`[handleToggleFavorite] Found category:`, category);
+    if (category && category.bookmarks) {
+      const bookmark = category.bookmarks.find(b => b.id === bookmarkId);
+      console.log(`[handleToggleFavorite] Found bookmark:`, bookmark);
+      if (bookmark) {
+        // Initialize isFavorite if it doesn't exist
+        if (typeof bookmark.isFavorite === 'undefined') {
+          bookmark.isFavorite = false;
+        }
+        bookmark.isFavorite = !bookmark.isFavorite; // Toggle status
+        console.log(`[handleToggleFavorite] Bookmark "${bookmark.title}" favorite status set to: ${bookmark.isFavorite}`);
+        bookmarkFound = true;
+
+        // Re-render the current view (either initial or specific category)
+        console.log("[handleToggleFavorite] Re-rendering view...");
+        if (showingInitialView) {
+            renderInitialView();
+        } else if (selectedCategoryId === categoryId) {
+            handleCategoryClick(categoryId); // Re-render the current category
+        } else {
+             console.warn("[handleToggleFavorite] Toggled favorite on a bookmark not in the current view.");
+             // Optionally re-render initial view if it might be affected?
+             // renderInitialView(); 
+        }
+         // Also re-render settings list if panel is open
+        if (settingsPanel.classList.contains('visible') && selectedCategoryForManagement === categoryId) {
+            renderBookmarkManagementList(categoryId);
+        }
+        console.log("[handleToggleFavorite] Saving data...");
+        await saveData(); // Save the change
+        console.log("[handleToggleFavorite] Data saved.");
+      }
+    }
+  } catch (error) {
+    console.error("[handleToggleFavorite] Error toggling favorite status:", error);
+  }
+  if (!bookmarkFound) {
+    console.error(`[handleToggleFavorite] Could not find bookmark with ID ${bookmarkId} in category ${categoryId} to toggle favorite.`);
+  }
+  console.log("[handleToggleFavorite] Finished.");
+}
+
+// === Handle clicks within the main bookmark grid === 
+// MOVED EARLIER (depends on handleToggleFavorite)
+function handleBookmarkGridClick(event) {
+  console.log("[handleBookmarkGridClick] Grid click detected."); // Log grid click
+  const toggleButton = event.target.closest('.favorite-toggle-button');
+  if (toggleButton) {
+    console.log("[handleBookmarkGridClick] Favorite toggle button found:", toggleButton);
+    const bookmarkId = toggleButton.dataset.bookmarkId;
+    const categoryId = toggleButton.dataset.categoryId; // Get category ID from button
+    console.log(`[handleBookmarkGridClick] Bookmark ID: ${bookmarkId}, Category ID: ${categoryId}`);
+    if (bookmarkId && categoryId) {
+      console.log("[handleBookmarkGridClick] Conditions met, attempting to call handleToggleFavorite..."); // Add log here
+      handleToggleFavorite(categoryId, bookmarkId);
+    } else {
+      console.warn("[handleBookmarkGridClick] Missing bookmarkId or categoryId on toggle button.");
+    }
+  } else {
+      console.log("[handleBookmarkGridClick] Click was not on a favorite toggle button.");
+  }
+}
+
+// === Helper to get all favorite bookmarks ===
+// MOVED EARLIER
+function getAllFavoriteBookmarks() {
+  console.log("[getAllFavs] Starting..."); // Log start
+  let favorites = []; 
+  try {
+      if (!Array.isArray(foxboardData.categories)) {
+          console.error("[getAllFavs] foxboardData.categories is not an array!", foxboardData.categories);
+          return []; // Return empty array on error
+      }
+      foxboardData.categories.forEach((category, index) => {
+        console.log(`[getAllFavs] Processing category ${index}:`, category?.name);
+        if (category && category.bookmarks && Array.isArray(category.bookmarks)) { // Add checks
+          category.bookmarks.forEach((bookmark, bmIndex) => {
+            // console.log(`[getAllFavs] Checking bookmark ${bmIndex}:`, bookmark?.title); // Optional: very verbose log
+            if (bookmark && bookmark.isFavorite) { // Check if bookmark exists
+              console.log(`[getAllFavs] Found favorite: ${bookmark.title}`);
+              favorites.push({ ...bookmark, categoryId: category.id });
+            }
+          });
+        } else {
+            console.warn(`[getAllFavs] Category ${index} (${category?.name}) has missing or invalid bookmarks array.`);
+        }
+      });
+  } catch (error) {
+      console.error("[getAllFavs] Error during processing:", error);
+      // Return empty array in case of unexpected errors
+      return []; 
+  }
+  console.log("[getAllFavs] Finished, returning:", favorites);
+  return favorites; 
+}
+
 // --- Constants & Defaults ---
 const STORAGE_KEY = 'foxboardData';
 const defaultSettings = {
@@ -118,6 +221,7 @@ const SEARCH_ENGINES = {
 // --- State ---
 let foxboardData = { ...defaultSettings }; // Initialize with defaults
 let selectedCategoryId = null; // For main view
+let showingInitialView = true; // Declare the variable here
 let selectedCategoryForManagement = null; // For settings panel
 
 // --- DOM Elements (Grouped for clarity) ---
@@ -308,6 +412,16 @@ async function loadDataAndInitializeUI() {
   setInterval(updateTime, 1000 * 30);
   updateDate();
   displayWeatherPlaceholder(foxboardData.temperatureUnit);
+
+  // NEW: Render initial view (Top Sites + Favorites) if no category was pre-selected
+  console.log(`[loadDataAndInitializeUI] Checking condition: !selectedCategoryId. Value: ${selectedCategoryId}`); // Log check
+  if (!selectedCategoryId) {
+    renderInitialView();
+    showingInitialView = true;
+  } else {
+    handleCategoryClick(selectedCategoryId); // Render the pre-selected category
+    showingInitialView = false;
+  }
 }
 
 function setupEventListeners() {
@@ -345,10 +459,42 @@ function setupEventListeners() {
 
   // Main Category Bar Clicks
   categoryBarElement.addEventListener('click', (event) => {
-    if (event.target.classList.contains('category-item')) {
-      handleCategoryClick(event.target.dataset.categoryId);
+    const clickedElement = event.target;
+    const targetButton = clickedElement.closest('.category-item'); 
+    console.log("[Category Bar Listener] Click detected on target:", clickedElement, "Closest button:", targetButton);
+
+    // Handle direct click on home button OR its parent having the ID
+    if (clickedElement.id === 'home-category-button' || targetButton?.id === 'home-category-button') { 
+        console.log("[Category Bar Listener] Home button identified.");
+        console.log(`[Category Bar Listener] Current showingInitialView state: ${showingInitialView}`);
+        if (!showingInitialView) { 
+            console.log("[Category Bar Listener] Calling renderInitialView...");
+            renderInitialView();
+            console.log("[Category Bar Listener] renderInitialView called.");
+        } else {
+            console.log("[Category Bar Listener] Already showing initial view, doing nothing.");
+        }
+    // Handle click on other category items (ensure it's not the home button)
+    } else if (targetButton && targetButton.dataset.categoryId) { 
+        const categoryId = targetButton.dataset.categoryId;
+        console.log(`[Category Bar Listener] Target button ID: ${targetButton.id}`); // Log the button ID
+        console.log(`[Category Bar Click] Category button clicked: ${categoryId}`);
+        if (selectedCategoryId !== categoryId) { 
+             handleCategoryClick(categoryId);
+        }
+    } else {
+        console.log("[Category Bar Listener] Click was not on a recognized button.");
     }
   });
+
+  // NEW: Add listener for clicks within the bookmark grid (for favorite toggles)
+  console.log('[setupEventListeners] Checking bookmarkGridContainer:', bookmarkGridContainer); // Log element check
+  if (bookmarkGridContainer) {
+    bookmarkGridContainer.addEventListener('click', handleBookmarkGridClick); // NOW handleBookmarkGridClick should be defined
+    console.log('[setupEventListeners] Added click listener to bookmarkGridContainer.'); // Confirm listener added
+  } else {
+    console.warn('[setupEventListeners] Bookmark grid container NOT found, cannot add favorite toggle listener.');
+  }
 }
 
 // === Search Functionality ===
@@ -390,6 +536,27 @@ async function saveData() {
 function renderCategoriesBar() {
   if (!categoryBarElement) return;
   categoryBarElement.innerHTML = ''; // Clear existing
+
+  // --- Add Home Button ---
+  const homeButton = document.createElement('button');
+  homeButton.className = 'category-item home-button'; // Add 'home-button' class
+  homeButton.id = 'home-category-button'; // Specific ID
+  // homeButton.innerHTML = '&#8962;'; // Remove Unicode character
+  homeButton.title = 'Show Home View (Favorites & Top Sites)';
+
+  // Create and add image tag
+  const homeIcon = document.createElement('img');
+  homeIcon.src = 'assets/icons/home.png';
+  homeIcon.alt = 'Home';
+  homeIcon.className = 'home-button-icon'; // Add class for styling
+  homeButton.appendChild(homeIcon);
+
+  // Add active class if showing initial view
+  if (showingInitialView) { 
+      homeButton.classList.add('active');
+  }
+  categoryBarElement.appendChild(homeButton);
+  // --- End Home Button ---
 
   foxboardData.categories.forEach(category => {
     const categoryElement = document.createElement('button');
@@ -857,17 +1024,25 @@ function handleCategoryClick(categoryId) {
 
     console.log(`Category selected: ${categoryId}`);
     selectedCategoryId = categoryId; // Update selected state for main view
+    showingInitialView = false; // No longer showing initial view
+    console.log("[handleCategoryClick] Set showingInitialView to:", showingInitialView); // Log state change
 
-    // Clear only the bookmark area, not the greeting
+    // Clear only the bookmark area
+    console.log("[handleCategoryClick] Clearing main content...");
     clearMainContent();
 
     // Find the category data
     const category = foxboardData.categories.find(c => c.id === categoryId);
     const bookmarkContainer = document.getElementById('bookmark-grid-container'); // Get the dedicated container
 
-    if (category && category.bookmarks && bookmarkContainer) { // Check if container exists
-        console.log(`Rendering bookmarks for category: ${category.name}`);
-        renderBookmarkGrid(bookmarkContainer, category.bookmarks); // Render into the container
+    if (category && category.bookmarks && bookmarkContainer) {
+        console.log(`[handleCategoryClick] Rendering bookmarks for category: ${category.name}`);
+        // Pass categoryId to renderBookmarkGrid for favorite toggling context
+        // Explicitly pass categoryId as the 4th argument
+        renderBookmarkGrid(bookmarkContainer, category.bookmarks, false, categoryId); 
+        // The renderBookmarkGrid now handles appending if container is provided 
+        console.log(`[handleCategoryClick] Bookmark grid rendering should be complete.`);
+
     } else {
         console.warn(`Category data or bookmarks not found for ID: ${categoryId}, or container missing.`);
         if (bookmarkContainer) {
@@ -1116,4 +1291,68 @@ function updateDate() {
   if (!dateDisplayElement) return;
   const now = new Date();
   dateDisplayElement.textContent = formatDate(now);
+}
+
+// === NEW: Initial View Rendering (Top Sites + Favorites) ===
+async function renderInitialView() {
+  console.log("[renderInitialView] Starting..."); // Log start
+  if (!bookmarkGridContainer) {
+    console.error("[renderInitialView] Bookmark grid container not found!");
+    return;
+  }
+  showingInitialView = true;
+  selectedCategoryId = null; 
+  bookmarkGridContainer.innerHTML = ''; 
+  renderCategoriesBar(); 
+
+  const fragment = document.createDocumentFragment();
+
+  // --- Render Favorites --- 
+  const favorites = getAllFavoriteBookmarks();
+  console.log("[renderInitialView] Fetched favorites:", favorites); // Log favorites
+  if (favorites.length > 0) {
+    // ... (add header) ...
+    console.log("[renderInitialView] Calling renderBookmarkGrid for favorites...");
+    const favoritesGrid = renderBookmarkGrid(null, favorites, true); 
+    if (favoritesGrid) {
+        fragment.appendChild(favoritesGrid);
+        console.log("[renderInitialView] Appended favorites grid.");
+    } else {
+        console.warn("[renderInitialView] renderBookmarkGrid for favorites returned null.");
+    }
+  }
+
+  // --- Render Top Sites --- 
+  try {
+    console.log("[renderInitialView] Fetching top sites...");
+    const topSites = await browser.topSites.get({ includeFavicon: true, limit: 12 }); 
+    console.log("[renderInitialView] Fetched top sites:", topSites);
+    if (topSites && topSites.length > 0) {
+      // --- Add Header ---
+      const topSitesHeader = document.createElement('h3');
+      topSitesHeader.textContent = 'Most Visited';
+      topSitesHeader.className = 'grid-section-header';
+      console.log("[renderInitialView] Appending Top Sites header:", topSitesHeader);
+      fragment.appendChild(topSitesHeader);
+      // -----------------
+      
+      console.log("[renderInitialView] Calling renderTopSitesGrid...");
+      const topSitesGrid = renderTopSitesGrid(topSites);
+      if (topSitesGrid) {
+          fragment.appendChild(topSitesGrid);
+          console.log("[renderInitialView] Appended top sites grid.");
+      } else {
+           console.warn("[renderInitialView] renderTopSitesGrid returned null.");
+      }
+    }
+  } catch (error) {
+    console.error('[renderInitialView] Error fetching/rendering top sites:', error);
+    // ... (display error message) ...
+  }
+
+  // ... (handle empty message logic) ...
+
+  console.log("[renderInitialView] Appending fragment to container.");
+  bookmarkGridContainer.appendChild(fragment);
+  console.log("[renderInitialView] Finished.");
 }

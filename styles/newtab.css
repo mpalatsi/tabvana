@@ -100,6 +100,28 @@ body {
   border-color: transparent; /* Remove border for active */
 }
 
+/* --- Home Button Specific Styles --- */
+.home-button {
+    /* Inherit most styles from .category-item */
+    /* Remove text specific styles */
+    /* font-size: 1.4em; */ 
+    /* line-height: 1; */
+    /* Adjust padding if needed for image size, inherit otherwise */
+    padding-top: 6px;    /* Slightly adjust vertical padding */
+    padding-bottom: 6px; 
+}
+
+/* Style for the icon image itself */
+.home-button-icon {
+    display: block; /* Prevents extra space below image */
+    width: 20px;   /* Set desired icon width */
+    height: 20px;  /* Set desired icon height */
+    /* Add margin if needed, e.g., margin: 0 auto; to center if padding isn't enough */
+}
+
+/* Active state is handled by .category-item.active */
+/* Remove redundant .home-button.active rule if present */
+
 /* --- Top Bar --- */
 #top-bar {
   position: fixed; /* Keep it fixed at the top */
@@ -473,6 +495,7 @@ body {
     align-items: center; /* Center horizontally */
     justify-content: center; /* Center vertically */
     min-height: 100px; /* Increased min height */
+    position: relative; 
 }
 
 .bookmark-item:hover {
@@ -628,4 +651,44 @@ body {
 #search-input:focus {
   background-color: rgba(0, 0, 0, 0.7);
   border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* --- Favorite Toggle Button --- */
+.favorite-toggle-button {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6); /* Default empty star color */
+    font-size: 1.3em; /* Make star slightly larger */
+    cursor: pointer;
+    padding: 2px; 
+    line-height: 1;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.favorite-toggle-button:hover {
+    color: rgba(255, 255, 255, 0.9); 
+    transform: scale(1.1); /* Slight grow effect */
+}
+
+.favorite-toggle-button.is-favorite {
+    color: #ffeb3b; /* Yellow color for filled star */
+}
+
+/* --- Grid Section Headers (Favorites, Top Sites) --- */
+.grid-section-header {
+    text-align: left; /* Align headers to the left */
+    margin-top: 25px; 
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.85);
+    padding-bottom: 5px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.grid-section-header:first-child {
+    margin-top: 10px; /* Reduce top margin for the very first header */
 }

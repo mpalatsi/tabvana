@@ -44,6 +44,20 @@ foxboard/
 
 ---
 
+## ✨ NEW: Phase 1.5: Initial View & Favorites
+
+- **Goal:** Display content immediately on load, before a specific category is chosen.
+- **Display:**
+  - **Top Sites:** Fetch and display the user's most frequently visited sites using the `browser.topSites` API.
+  - **Favorites:** Display bookmarks that the user has marked as "Favorite".
+- **Layout:** Arrange Top Sites and Favorites in a clear grid or section(s) within the main content area. This view is shown when no specific category (like "Work" or "Personal") is active.
+- **Favorites Mechanism:**
+  - Add a toggle (e.g., star icon) to each bookmark item (in the main grid and settings).
+  - Clicking the toggle marks/unmarks a bookmark as a favorite.
+  - Store favorite status persistently within the bookmark data (e.g., `isFavorite: true/false`).
+
+---
+
 ## 🧩 Phase 2: Bookmark Management
 
 - Use the [Bookmarks API](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/bookmarks)
@@ -53,7 +67,6 @@ foxboard/
   - Create folders (drag/drop, or manual)
   - Editable titles, add/remove bookmarks
   - Organize bookmarks into **categories/sections** (e.g., "Work", "Entertainment", "Tools") that can **expand/collapse**
-  - Optional: Save custom "Favorites" section separate from synced bookmarks
 
 ---
 
@@ -114,7 +127,9 @@ foxboard/
 ## 🧠 Suggestions & Enhancements
 
 - ✅ Drag & drop for reordering bookmarks
-- 📌 "Pin" bookmarks to top
+- 📌 "Pin" bookmarks to top **(Superseded by Favorites)**
+- ⭐ **(Added in Phase 1.5)** Mark bookmarks as "Favorites" to show on initial view.
+- 🔝 **(Added in Phase 1.5)** Show Top Sites on initial view.
 - 📂 Sync bookmarks with Firefox Sync or offer local-only mode
 - 🧭 Built-in quick search bar (optional)
 - 🔔 Notifications (e.g., "X bookmarks added recently")

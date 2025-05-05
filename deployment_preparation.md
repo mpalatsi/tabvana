@@ -2,11 +2,11 @@
 
 **Manifest.json Finalization:**
 
-*   [ ] Add unique extension `id` (e.g., `foxboard@yourdomain.com`).
-*   [ ] Set initial `version` (e.g., `1.0.0`).
+*   [x] Add unique extension `id` (e.g., `foxboard@yourdomain.com`).
+*   [x] Set initial `version` (e.g., `1.0.0`).
 *   [ ] Add `developer` name (and optional URL).
-*   [ ] Write clear `description`.
-*   [ ] Verify/add required `icons` (16, 32, 48, 96, 128px).
+*   [x] Write clear `description`.
+*   [x] Verify/add required `icons` (16, 32, 48, 96, 128px).
 *   [ ] Add `homepage_url` (Optional).
 *   [ ] Add `support_url` (Optional).
 *   [ ] Review `permissions` and `host_permissions` for minimality.
