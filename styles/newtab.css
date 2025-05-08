@@ -10,6 +10,15 @@ html, body {
 
 body {
   background-color: #f0f0f0; /* Placeholder background */
+  /* Default to dark theme unless light-theme is specified */
+}
+
+body.dark-theme {
+  /* Styles specific to dark theme, if any, beyond defaults */
+}
+
+body.light-theme {
+  /* Styles specific to light theme */
 }
 
 #background-container {
@@ -23,6 +32,19 @@ body {
   background-position: center; /* Center the image */
   background-repeat: no-repeat;
   transition: background-image 0.5s ease-in-out; /* Smooth transition */
+  overflow: hidden; /* Changed from overflow-y: auto to prevent scrollbars */
+  text-align: center;
+  /* Default text color and shadow for dark theme */
+}
+
+body.dark-theme #main-content {
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+body.light-theme #main-content {
+  color: #333333; /* Dark text for light theme */
+  text-shadow: 0 1px 2px rgba(255,255,255,0.5); /* Subtle light shadow */
 }
 
 #app {
@@ -39,8 +61,6 @@ body {
   padding: 0 20px 20px 20px; /* Remove top padding, keep others */
   overflow-y: auto; /* Allow scrolling if content overflows */
   text-align: center;
-  color: #ffffff; /* Make default text white for better visibility on image */
-  text-shadow: 0 1px 3px rgba(0,0,0,0.4); /* Add shadow for readability */
   max-width: 1200px; /* Apply max-width */
   margin: 0 auto; /* Center the main content area */
 }
@@ -84,22 +104,44 @@ body {
 .category-item {
   padding: 8px 20px; /* Adjust padding for pill shape */
   border: none; /* Remove border */
-  background-color: rgba(0, 0, 0, 0.4); /* Darker semi-transparent background */
-  color: #ffffff; /* White text */
+  /* background-color will be set by theme */
+  /* color will be set by theme */
   border-radius: 20px; /* Pill shape */
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease; /* Added color transition */
 }
 
-.category-item:hover {
-  background-color: rgba(0, 0, 0, 0.6); /* Darken on hover */
+body.dark-theme .category-item {
+  background-color: rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+}
+
+body.light-theme .category-item {
+  background-color: rgba(255, 255, 255, 0.5); /* Light semi-transparent background */
+  color: #333333; /* Dark text */
+  /* border: 1px solid rgba(0,0,0,0.1); */ /* Optional: subtle border for light items */
+}
+
+body.dark-theme .category-item:hover {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+body.light-theme .category-item:hover {
+  background-color: rgba(255, 255, 255, 0.7); /* Lighter on hover */
+  /* color: #000000; */ /* Optional: darken text on hover */
 }
 
 /* Style for the active category */
-.category-item.active {
-  background-color: rgba(0, 123, 255, 0.7); /* Example active color - semi-transparent */
+body.dark-theme .category-item.active {
+  background-color: rgba(0, 123, 255, 0.7);
   color: white;
-  border-color: transparent; /* Remove border for active */
+  border-color: transparent;
+}
+
+body.light-theme .category-item.active {
+  background-color: rgba(0, 123, 255, 0.8); /* Slightly more opaque for light theme */
+  color: white;
+  border-color: transparent;
 }
 
 /* --- Home Button Specific Styles --- */
@@ -138,13 +180,21 @@ body {
 }
 
 /* Active state for the edit mode button itself */
-body.edit-mode-active .edit-mode-button {
+body.dark-theme.edit-mode-active .edit-mode-button {
   background-color: rgba(220, 53, 69, 0.7); /* Red background when active */
-  /* Optionally change icon color/filter if using SVG or font icon */
 }
 
-body.edit-mode-active .edit-mode-button:hover {
+body.light-theme.edit-mode-active .edit-mode-button {
+  background-color: rgba(255, 82, 99, 0.7); /* Lighter Red background for light theme */
+  color: #ffffff; /* Ensure text/icon is visible */
+}
+
+body.dark-theme.edit-mode-active .edit-mode-button:hover {
   background-color: rgba(190, 33, 49, 0.9);
+}
+
+body.light-theme.edit-mode-active .edit-mode-button:hover {
+  background-color: rgba(255, 59, 77, 0.9);
 }
 
 /* --- Top Bar --- */
@@ -154,13 +204,24 @@ body.edit-mode-active .edit-mode-button:hover {
   left: 0;
   width: 100%;
   padding: 10px 20px;
-  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
-  color: #ffffff;
+  /* background-color will be set by theme */
+  /* color will be set by theme */
   display: flex; /* Use flexbox */
   justify-content: space-between; /* Space out children */
   align-items: center; /* Vertically align items */
   z-index: 1000; /* Ensure it's above background */
   box-sizing: border-box;
+}
+
+body.dark-theme #top-bar {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+}
+
+body.light-theme #top-bar {
+  background-color: rgba(255, 255, 255, 0.6); /* Light semi-transparent background */
+  color: #333333; /* Dark text */
+  /* box-shadow: 0 1px 3px rgba(0,0,0,0.1); */ /* Optional: subtle shadow for light bar */
 }
 
 /* Add a wrapper INSIDE top-bar for content alignment */
@@ -178,12 +239,20 @@ body.edit-mode-active .edit-mode-button:hover {
   display: flex;
   align-items: center;
   gap: 10px; /* Space between time and weather */
-  text-shadow: 0 1px 3px rgba(0,0,0,0.4); /* Add shadow for readability */
+  /* text-shadow will be set by theme */
   max-width: 1200px; /* Apply max-width */
   margin-left: auto; /* Use auto margins to center */
   margin-right: auto;
   /* Keep padding: 0 20px 20px 20px; or adjust if needed */
   flex-shrink: 0; /* Prevent shrinking */
+}
+
+body.dark-theme #top-left-info {
+  text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+body.light-theme #top-left-info {
+  text-shadow: 0 1px 2px rgba(255,255,255,0.5); /* Adapts to light theme text color */
 }
 
 /* Ensure divider is visible */
@@ -222,8 +291,8 @@ body.edit-mode-active .edit-mode-button:hover {
     text-align: center; /* Center the text */
     font-size: 1.2em; /* Make greeting slightly larger */
     font-weight: 500; /* Medium weight */
-    color: #ffffff; /* Ensure white color */
-    text-shadow: 0 1px 3px rgba(0,0,0,0.4); /* Match other top bar text */
+    /* color will be set by theme (inherited from #top-bar) */
+    /* text-shadow will be set by theme (inherited from #top-bar) */
     margin: 0 15px; /* Add some horizontal margin */
     white-space: nowrap; /* Prevent wrapping */
     overflow: hidden; /* Hide overflow */
@@ -238,7 +307,7 @@ body.edit-mode-active .edit-mode-button:hover {
   width: 36px;
   height: 36px;
   font-size: 18px;
-  color: inherit; /* Inherit from top-bar */
+  color: inherit; /* Inherit from top-bar, which is now theme-dependent */
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -506,14 +575,14 @@ body.edit-mode-active .edit-mode-button:hover {
 }
 
 .bookmark-item {
-    background-color: rgba(0, 0, 0, 0.4); /* Match category buttons */
+    /* background-color will be set by theme */
     padding: 15px; /* Keep padding */
     border-radius: 8px;
     /* text-align: center; No longer needed with flex */
-    color: #ffffff;
+    /* color will be set by theme */
     text-decoration: none;
-    transition: background-color 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: background-color 0.2s ease, color 0.2s ease; /* Added color transition */
+    /* box-shadow will be set by theme */
     /* display: block; Replaced by flex */
     display: flex; /* Use flexbox */
     flex-direction: column; /* Stack items vertically */
@@ -523,15 +592,34 @@ body.edit-mode-active .edit-mode-button:hover {
     position: relative; 
 }
 
-.bookmark-item:hover {
-    background-color: rgba(0, 0, 0, 0.6); /* Darken on hover */
+body.dark-theme .bookmark-item {
+  background-color: rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+body.light-theme .bookmark-item {
+  background-color: rgba(255, 255, 255, 0.5);
+  color: #333333;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Lighter shadow for light items */
+  /* border: 1px solid rgba(0,0,0,0.05); */ /* Optional border */
+}
+
+body.dark-theme .bookmark-item:hover {
+    background-color: rgba(0, 0, 0, 0.6);
+}
+
+body.light-theme .bookmark-item:hover {
+    background-color: rgba(255, 255, 255, 0.7);
+    /* color: #000000; */
 }
 
 .bookmark-item img {
-    width: 48px; /* Increased icon size */
-    height: 48px; /* Increased icon size */
-    margin-bottom: 10px; /* Increased space between icon and text */
+    width: 48px; /* Icon size */
+    height: 48px; /* Icon size */
+    margin-bottom: 10px; /* Space between icon and text */
     object-fit: contain; /* Prevent distortion */
+    /* Removed erroneous border, border-radius, second width, and transition from previous edit */
 }
 
 .bookmark-item span {
@@ -677,13 +765,34 @@ body.edit-mode-active .edit-mode-button:hover {
   transition: background-color 0.3s, border-color 0.3s;
 }
 
-#search-input::placeholder {
+body.dark-theme #search-input {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+body.light-theme #search-input {
+  background-color: rgba(255, 255, 255, 0.7); /* Light background for search */
+  color: #333333; /* Dark text */
+  border: 1px solid rgba(0, 0, 0, 0.2); /* Darker subtle border */
+}
+
+body.dark-theme #search-input::placeholder {
   color: rgba(255, 255, 255, 0.6);
 }
 
-#search-input:focus {
+body.light-theme #search-input::placeholder {
+  color: rgba(0, 0, 0, 0.4); /* Darker placeholder text */
+}
+
+body.dark-theme #search-input:focus {
   background-color: rgba(0, 0, 0, 0.7);
   border-color: rgba(255, 255, 255, 0.6);
+}
+
+body.light-theme #search-input:focus {
+  background-color: rgba(255, 255, 255, 0.9); /* Lighter focus background */
+  border-color: rgba(0, 0, 0, 0.4); /* Darker focus border */
 }
 
 /* --- Favorite Toggle Button --- */
@@ -693,7 +802,7 @@ body.edit-mode-active .edit-mode-button:hover {
     right: 5px;
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.6); /* Default empty star color */
+    /* color will be set by theme for default state */
     font-size: 1.3em; /* Make star slightly larger */
     cursor: pointer;
     padding: 2px; 
@@ -701,13 +810,27 @@ body.edit-mode-active .edit-mode-button:hover {
     transition: color 0.2s ease, transform 0.2s ease;
 }
 
-.favorite-toggle-button:hover {
+body.dark-theme .favorite-toggle-button {
+    color: rgba(255, 255, 255, 0.6); /* Default empty star color for dark */
+}
+
+body.light-theme .favorite-toggle-button {
+    color: rgba(0, 0, 0, 0.4); /* Default empty star color for light */
+}
+
+body.dark-theme .favorite-toggle-button:hover {
     color: rgba(255, 255, 255, 0.9); 
     transform: scale(1.1); /* Slight grow effect */
 }
 
+body.light-theme .favorite-toggle-button:hover {
+    color: rgba(0, 0, 0, 0.7);
+    transform: scale(1.1); /* Slight grow effect */
+}
+
+/* .favorite-toggle-button.is-favorite is universal */
 .favorite-toggle-button.is-favorite {
-    color: #ffeb3b; /* Yellow color for filled star */
+    color: #ffeb3b; /* Yellow color for filled star (works on both themes) */
 }
 
 /* --- Grid Section Headers (Favorites, Top Sites) --- */
@@ -717,9 +840,19 @@ body.edit-mode-active .edit-mode-button:hover {
     margin-bottom: 10px;
     font-size: 1.1em;
     font-weight: bold;
-    color: rgba(255, 255, 255, 0.85);
+    /* color will be set by theme */
     padding-bottom: 5px;
+    /* border-bottom will be set by theme */
+}
+
+body.dark-theme .grid-section-header {
+    color: rgba(255, 255, 255, 0.85);
     border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+body.light-theme .grid-section-header {
+    color: rgba(0, 0, 0, 0.75); /* Darker text for section headers */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.2); /* Darker border */
 }
 
 .grid-section-header:first-child {
@@ -734,16 +867,29 @@ body.edit-mode-active .bookmark-item {
 /* Make title look editable */
 body.edit-mode-active .editable-title {
   cursor: text;
-  outline: 1px dashed rgba(255, 255, 255, 0.4); 
+  /* outline will be set by theme */
   outline-offset: 2px;
   padding: 2px 4px; /* Add slight padding */
   margin: -2px -4px; /* Counteract padding to maintain layout */
   border-radius: 3px;
 }
 
-body.edit-mode-active .editable-title:focus {
+body.dark-theme.edit-mode-active .editable-title {
+  outline: 1px dashed rgba(255, 255, 255, 0.4);
+}
+
+body.light-theme.edit-mode-active .editable-title {
+  outline: 1px dashed rgba(0, 0, 0, 0.4);
+}
+
+body.dark-theme.edit-mode-active .editable-title:focus {
   outline: 2px solid #007bff;
-  background-color: rgba(0, 0, 0, 0.2); /* Slightly darken background when editing */
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+body.light-theme.edit-mode-active .editable-title:focus {
+  outline: 2px solid #007bff;
+  background-color: rgba(255, 255, 255, 0.3); /* Lighter edit background */
 }
 
 /* Make icon look clickable */
@@ -753,15 +899,29 @@ body.edit-mode-active .editable-icon {
   border-radius: 4px; /* Add slight rounding */
 }
 
-body.edit-mode-active .editable-icon:hover {
+body.dark-theme.edit-mode-active .editable-icon {
   filter: brightness(1.2);
   transform: scale(1.05);
   outline: 1px dashed rgba(255, 255, 255, 0.7);
 }
 
+body.light-theme.edit-mode-active .editable-icon {
+  filter: brightness(1.2);
+  transform: scale(1.05);
+  outline: 1px dashed rgba(0, 0, 0, 0.5);
+}
+
 .bookmark-item.dragging {
   opacity: 0.4;
+  /* background will be set by theme */
+}
+
+body.dark-theme .bookmark-item.dragging {
   background: rgba(255, 255, 255, 0.1);
+}
+
+body.light-theme .bookmark-item.dragging {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .bookmark-item.drag-over-target {

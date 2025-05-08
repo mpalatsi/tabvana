@@ -213,6 +213,7 @@ const defaultSettings = {
     temperatureUnit: 'metric',
     searchEngine: 'duckduckgo',
     showTopSites: true,
+    themeMode: 'dark', // Added new themeMode setting
     categories: [
         { id: 'work', name: 'Work', bookmarks: [] },
         { id: 'personal', name: 'Personal', bookmarks: [] }
@@ -283,6 +284,7 @@ let unsplashQualitySelect = null;
 let userNameInput = null;
 let temperatureUnitSelect = null;
 let searchEngineSelect = null;
+let themeModeSelect = null; // Added reference for the new select
 
 // Category Management Elements
 let categoryManagementSection = null;
@@ -366,6 +368,7 @@ function assignDOMElements() {
   userNameInput = document.getElementById('user-name-input');
   temperatureUnitSelect = document.getElementById('temperature-unit-select');
   searchEngineSelect = document.getElementById('search-engine-select');
+  themeModeSelect = document.getElementById('theme-mode-select'); // Assign new DOM element
   // Category Management
   categoryManagementSection = document.getElementById('category-management-section');
   categoryListElement = document.getElementById('category-list');
@@ -408,7 +411,7 @@ function checkDOMElements() {
     dateDisplayElement, weatherDisplayElement, greetingDisplayElement,
     settingsToggleButton, settingsPanel, settingsCloseButton, saveSettingsButton,
     unsplashApiKeyInput, unsplashThemeSelect, unsplashQualitySelect, userNameInput, temperatureUnitSelect,
-    searchEngineSelect,
+    searchEngineSelect, themeModeSelect,
     categoryManagementSection, categoryListElement, newCategoryNameInput, addCategoryButton,
     importFirefoxBookmarksButton,
     bookmarkManagementSection, bookmarkSectionTitle, bookmarkListElement, newBookmarkTitleInput, newBookmarkUrlInput, addBookmarkButton, backToCategoriesButton,
@@ -437,6 +440,7 @@ async function loadDataAndInitializeUI() {
       ...(storedData[STORAGE_KEY] || {}),
       searchEngine: storedData[STORAGE_KEY]?.searchEngine || defaultSettings.searchEngine,
       showTopSites: (storedData[STORAGE_KEY]?.showTopSites !== undefined) ? storedData[STORAGE_KEY].showTopSites : defaultSettings.showTopSites,
+      themeMode: storedData[STORAGE_KEY]?.themeMode || defaultSettings.themeMode, // Load themeMode
       categories: (storedData[STORAGE_KEY]?.categories || defaultSettings.categories)
     };
     console.log('[Tabvana] Data loaded:', tabvanaData);
@@ -454,11 +458,14 @@ async function loadDataAndInitializeUI() {
   if (userNameInput) userNameInput.value = tabvanaData.userName;
   if (temperatureUnitSelect) temperatureUnitSelect.value = tabvanaData.temperatureUnit;
   if (searchEngineSelect) searchEngineSelect.value = tabvanaData.searchEngine;
+  if (themeModeSelect) themeModeSelect.value = tabvanaData.themeMode; // Initialize themeMode select
 
   if (backgroundContainerElement && typeof setUnsplashBackground === 'function') {
     setUnsplashBackground(backgroundContainerElement, tabvanaData.unsplashApiKey, tabvanaData.unsplashTheme, tabvanaData.unsplashQuality);
   }
   
+  applyThemeMode(tabvanaData.themeMode); // Apply theme on load
+
   if (typeof renderCategoryManagementList === 'function') renderCategoryManagementList();
   if (typeof displayGreeting === 'function') displayGreeting(tabvanaData.userName);
   if (typeof updateTime === 'function') {
@@ -798,7 +805,8 @@ async function prefillSettingsInputs() {
         ...defaultSettings, 
         ...(storedData[STORAGE_KEY] || {}),
         // Ensure searchEngine is included when prefilling
-        searchEngine: storedData[STORAGE_KEY]?.searchEngine || defaultSettings.searchEngine 
+        searchEngine: storedData[STORAGE_KEY]?.searchEngine || defaultSettings.searchEngine,
+        themeMode: storedData[STORAGE_KEY]?.themeMode || defaultSettings.themeMode // Load themeMode for prefill
     };
     unsplashApiKeyInput.value = currentData.unsplashApiKey || '';
     unsplashThemeSelect.value = currentData.unsplashTheme || defaultSettings.unsplashTheme;
@@ -806,6 +814,7 @@ async function prefillSettingsInputs() {
     userNameInput.value = currentData.userName;
     temperatureUnitSelect.value = currentData.temperatureUnit;
     searchEngineSelect.value = currentData.searchEngine;
+    if (themeModeSelect) themeModeSelect.value = currentData.themeMode; // Prefill themeMode select
   } catch (err) { console.error('Error getting settings for panel:', err) };
 }
 
@@ -1141,6 +1150,7 @@ async function handleSaveSettings() {
   tabvanaData.userName = userNameInput.value.trim() || '';
   tabvanaData.temperatureUnit = temperatureUnitSelect.value;
   tabvanaData.searchEngine = searchEngineSelect.value;
+  tabvanaData.themeMode = themeModeSelect.value; // Save themeMode
 
   const originalButtonText = saveSettingsButton.textContent;
   saveSettingsButton.disabled = true; // Prevent double-click
@@ -1157,6 +1167,7 @@ async function handleSaveSettings() {
     setUnsplashBackground(backgroundContainerElement, tabvanaData.unsplashApiKey, tabvanaData.unsplashTheme, tabvanaData.unsplashQuality);
   }
   displayWeatherPlaceholder(tabvanaData.temperatureUnit);
+  applyThemeMode(tabvanaData.themeMode); // Apply theme on save
 
   // Reset button after a delay
   setTimeout(() => {
@@ -1164,6 +1175,20 @@ async function handleSaveSettings() {
     saveSettingsButton.disabled = false;
   }, 1500);
 }
+
+// --- New Function: Apply Theme Mode ---
+function applyThemeMode(mode) {
+  if (mode === 'light') {
+    document.body.classList.add('light-theme');
+    document.body.classList.remove('dark-theme'); // Ensure only one theme class is active
+  } else { // Default to dark
+    document.body.classList.add('dark-theme');
+    document.body.classList.remove('light-theme');
+  }
+  console.log(`[Tabvana] Theme applied: ${mode}`);
+}
+
+// --- End New Function ---
 
 // === Main View Logic (Displaying Content) ===
 
