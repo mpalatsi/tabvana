@@ -243,7 +243,7 @@ body.light-theme #top-bar {
   max-width: 1200px; /* Apply max-width */
   margin-left: auto; /* Use auto margins to center */
   margin-right: auto;
-  /* Keep padding: 0 20px 20px 20px; or adjust if needed */
+  font-size: 1em; /* Added to standardize */
   flex-shrink: 0; /* Prevent shrinking */
 }
 
@@ -281,7 +281,7 @@ body.light-theme #top-left-info {
 /* Remove margin from date-display as gap handles it */
 #date-display {
     margin-right: 0; /* Remove margin, gap is used now */
-    font-size: 0.9em;
+    font-size: 1em; /* Changed from 0.9em to match top-left */
     opacity: 0.9;
 }
 
@@ -638,9 +638,49 @@ body.light-theme .bookmark-item:hover {
 
 /* Styling for the message when the bookmark grid is empty */
 .empty-grid-message {
-  margin-top: 30px; /* Adjust spacing as needed */
+  position: absolute; /* Position relative to container */
+  top: 50%;             /* Center vertically */
+  left: 50%;            /* Center horizontally */
+  transform: translate(-50%, -50%); /* Fine-tune centering */
+  margin: 0;
+  padding: 10px 20px;
   font-style: italic;
-  opacity: 0.8;
+  opacity: 0.9; 
+  font-size: 1.1em; 
+  font-weight: 500; 
+  text-align: center; 
+  display: inline-block; 
+  border-radius: 8px; 
+  white-space: nowrap; /* Force single line */
+  /* Ensure container has relative positioning */
+}
+
+/* Ensure parent containers have relative position for absolute child centering */
+#bookmark-grid-container,
+#favorites-grid-specific-container,
+.bookmark-grid /* Apply to grid as well if message can be direct child */
+{
+    position: relative; 
+    min-height: 150px; /* Ensure container has height for centering */
+}
+
+/* Remove general min-height from these specific selectors if they exist */
+/* We actually need min-height for the centering, so keep it */
+/*
+#bookmark-grid-container,
+#favorites-grid-specific-container {
+    min-height: initial; 
+}
+*/
+
+body.dark-theme .empty-grid-message {
+  color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(0, 0, 0, 0.5); /* Dark semi-transparent background */
+}
+
+body.light-theme .empty-grid-message {
+  color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(255, 255, 255, 0.6); /* Light semi-transparent background */
 }
 
 /* --- Import Modal Styles --- */
@@ -1028,3 +1068,168 @@ body.dark-theme .suggestion-item:hover {
 body.dark-theme .suggestion-item.active-suggestion {
   background-color: rgba(0, 123, 255, 0.35); /* Adjusted for dark theme */
 }
+
+/* --- Settings Panel Dark Theme Overrides --- */
+
+body.dark-theme #settings-panel {
+  background-color: #212529; /* Dark background */
+  color: #dee2e6; /* Light text */
+  box-shadow: -3px 0 15px rgba(0, 0, 0, 0.3); /* Slightly darker shadow */
+}
+
+body.dark-theme #settings-panel h2,
+body.dark-theme #settings-panel h3 {
+  color: #f8f9fa; /* Lighter headings */
+}
+
+body.dark-theme #settings-panel .setting-section h3 {
+    color: #adb5bd; /* Slightly less bright section sub-headings */
+}
+
+body.dark-theme #settings-close-button {
+  color: #adb5bd; /* Lighter close button */
+}
+
+body.dark-theme #settings-close-button:hover {
+  color: #f8f9fa;
+}
+
+body.dark-theme .setting-item {
+  border-bottom-color: #495057; /* Darker border */
+}
+
+body.dark-theme .setting-item label {
+  color: #ced4da; /* Lighter labels */
+}
+
+body.dark-theme .setting-item input[type="password"], 
+body.dark-theme .setting-item input[type="text"], 
+body.dark-theme .setting-item select {
+  background-color: #343a40; /* Dark input background */
+  color: #f8f9fa; /* Light input text */
+  border-color: #6c757d; /* Darker border */
+}
+
+body.dark-theme .setting-item input[type="password"]::placeholder,
+body.dark-theme .setting-item input[type="text"]::placeholder {
+    color: #adb5bd; /* Lighter placeholder text */
+}
+
+/* Primary button in dark settings */
+body.dark-theme .setting-item button:not(.secondary):not(.setting-item-button) {
+  background-color: #0d6efd; /* Standard Bootstrap blue */
+  color: white;
+}
+
+body.dark-theme .setting-item button:not(.secondary):not(.setting-item-button):hover {
+  background-color: #0b5ed7;
+}
+
+/* Settings Save button */
+body.dark-theme .settings-save-container {
+    border-top-color: #495057;
+}
+body.dark-theme .settings-save-container button {
+    background-color: #198754; /* Bootstrap green */
+    border-color: #198754;
+    color: white;
+}
+body.dark-theme .settings-save-container button:hover {
+    background-color: #157347;
+    border-color: #146c43;
+}
+
+/* Secondary button in dark settings */
+body.dark-theme .setting-item-button.secondary {
+    background-color: #495057;
+    color: #dee2e6;
+    border-color: #6c757d;
+}
+
+body.dark-theme .setting-item-button.secondary:hover {
+    background-color: #5a6268;
+    border-color: #6c757d;
+}
+
+body.dark-theme .setting-item .help-text {
+  color: #adb5bd; /* Lighter help text */
+}
+
+body.dark-theme .setting-item .help-text a {
+  color: #6ea8fe; /* Lighter blue link */
+}
+
+body.dark-theme .setting-section {
+    border-top-color: #495057; /* Darker separator */
+}
+
+/* Category/Bookmark Management List */
+body.dark-theme #category-list li, 
+body.dark-theme #bookmark-list li {
+    border-bottom-color: #343a40; /* Darker item separator */
+}
+
+body.dark-theme #category-list li .category-name, 
+body.dark-theme #bookmark-list li .bookmark-details {
+    color: #e9ecef; /* Lighter item names/details */
+}
+
+body.dark-theme #bookmark-list li .bookmark-url {
+    color: #adb5bd; /* Lighter URL text */
+}
+
+/* Management Buttons */
+body.dark-theme .category-item-controls button, 
+body.dark-theme .bookmark-item-controls button {
+    background-color: #343a40;
+    border-color: #6c757d;
+    color: #ced4da; /* Lighter button text */
+}
+
+body.dark-theme .category-item-controls button:hover, 
+body.dark-theme .bookmark-item-controls button:hover {
+    background-color: #495057;
+    border-color: #adb5bd;
+}
+
+/* Specific Management Button Colors */
+body.dark-theme .edit-category-button, 
+body.dark-theme .edit-bookmark-button {
+   color: #6ea8fe; /* Lighter blue */
+}
+
+body.dark-theme .delete-category-button, 
+body.dark-theme .delete-bookmark-button {
+   color: #ff8a96; /* Lighter red */
+   background-color: #5c1a22; /* Dark red background hint */
+   border-color: #8c2a36;
+}
+body.dark-theme .delete-category-button:hover, 
+body.dark-theme .delete-bookmark-button:hover {
+    background-color: #a52f3e; 
+    border-color: #c74051;
+    color: #f8d7da; /* Lightest red on hover */
+}
+
+body.dark-theme .manage-bookmarks-button {
+    color: #6bc883; /* Lighter green */
+}
+
+/* Add forms */
+body.dark-theme .add-category-form input, 
+body.dark-theme .add-bookmark-form input {
+    /* Styles inherited from generic input rule above */
+}
+
+body.dark-theme .add-category-form button, 
+body.dark-theme .add-bookmark-form button {
+    /* Use primary button style from above */
+    background-color: #0d6efd;
+    color: white;
+}
+body.dark-theme .add-category-form button:hover, 
+body.dark-theme .add-bookmark-form button:hover {
+    background-color: #0b5ed7;
+}
+
+/* --- End Settings Panel Dark Theme Overrides --- */

@@ -2184,7 +2184,14 @@ function handleDrop(event) {
 function renderEmptyState(container, message) {
   console.log(`[Tabvana] renderEmptyState called for container ${container?.id} with message: "${message}"`);
   if (!container) return;
-  container.innerHTML = `<p class="empty-grid-message">${message}</p>`;
+  
+  // Set the message directly, styling/centering handled by CSS on container and message class
+  container.innerHTML = `<p class="empty-grid-message">${message}</p>`; 
+  
+  // Ensure the container has flex properties for centering (applied via CSS now)
+  // container.style.display = 'flex'; 
+  // container.style.alignItems = 'center';
+  // container.style.justifyContent = 'center';
 }
 
 // --- NEW: Delegated Event Handlers for Edit Mode ---
