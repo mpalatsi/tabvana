@@ -263,6 +263,17 @@ body.light-theme #top-left-info {
 }
 
 /* Example for weather icon - replace with actual icon font/SVG later */
+#weather-display {
+  cursor: pointer; /* Indicates it's clickable */
+  /* Potentially add a hover effect for more feedback */
+  /* transition: opacity 0.2s ease; */
+}
+
+/* Add a subtle hover effect for better UX */
+#weather-display:hover {
+  opacity: 0.8;
+}
+
 #weather-display::before {
   content: "☀️"; /* Placeholder icon */
   margin-right: 5px;
@@ -1233,3 +1244,88 @@ body.dark-theme .add-bookmark-form button:hover {
 }
 
 /* --- End Settings Panel Dark Theme Overrides --- */
+
+/* --- Weather Settings --- */
+#location-display {
+  display: inline-block; /* Keep it inline */
+  margin-left: 10px;
+  font-size: 0.85em;
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* Dark theme for location display */
+body.dark-theme #location-display {
+  color: #adb5bd;
+}
+
+/* --- Forecast Display Panel --- */
+#forecast-display {
+  position: fixed;
+  top: 60px; /* Below top bar */
+  left: 20px; /* Align near weather display */
+  width: 250px; /* Adjust width as needed */
+  background-color: rgba(255, 255, 255, 0.95); /* Light theme background */
+  color: #212529; /* Light theme text */
+  border: 1px solid rgba(0,0,0,0.1);
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  z-index: 1100; /* Above most other things */
+  display: none; /* Initially hidden */
+}
+
+#forecast-close-button {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  font-weight: bold;
+  color: #888;
+  cursor: pointer;
+}
+#forecast-close-button:hover {
+  color: #333;
+}
+
+#forecast-display h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  text-align: center;
+  font-size: 1.1em;
+}
+
+#forecast-content p {
+  margin: 5px 0;
+  font-size: 0.9em;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+}
+
+#forecast-content p:last-child {
+    border-bottom: none;
+}
+
+/* Dark theme for forecast panel */
+body.dark-theme #forecast-display {
+  background-color: rgba(45, 45, 45, 0.97);
+  color: #dee2e6;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+body.dark-theme #forecast-close-button {
+  color: #adb5bd;
+}
+body.dark-theme #forecast-close-button:hover {
+  color: #f8f9fa;
+}
+
+body.dark-theme #forecast-display h4 {
+    color: #f8f9fa;
+}
+
+body.dark-theme #forecast-content p {
+    border-bottom-color: #495057;
+}

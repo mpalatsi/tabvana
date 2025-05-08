@@ -70,6 +70,22 @@
     </div>
 
     <div class="setting-item">
+        <label for="custom-background-url-input">Custom Background Image URL:</label>
+        <input type="text" id="custom-background-url-input" placeholder="Enter image URL (e.g., https://...)">
+        
+        <label for="custom-background-file-input" style="margin-top: 15px; display: block;">Or Choose Local File:</label>
+        <input type="file" id="custom-background-file-input" accept="image/*" style="display: none;"> 
+        <button id="choose-local-file-button" class="setting-item-button secondary" style="margin-top: 5px;">Choose File...</button>
+        <span id="local-file-name-display" style="margin-left: 10px; font-size: 0.9em; color: #6c757d;"></span>
+
+        <div class="button-group" style="margin-top: 15px; display: flex; gap: 10px;">
+            <button id="set-custom-background-button" class="setting-item-button secondary">Set from URL</button>
+            <button id="clear-custom-background-button" class="setting-item-button secondary">Clear Custom Background</button>
+        </div>
+        <p class="help-text">Set a background from a web URL or a local file. Overrides Unsplash. Clear to use Unsplash.</p>
+    </div>
+
+    <div class="setting-item">
         <label for="user-name-input">Your Name:</label>
         <input type="text" id="user-name-input" placeholder="(Optional)">
     </div>
@@ -98,6 +114,21 @@
       <select id="search-engine-select"></select>
     </div>
     <!-- End Search Engine Setting -->
+
+    <!-- Weather Settings -->
+    <div class="setting-section" id="weather-settings-section">
+        <h3>Weather</h3>
+        <div class="setting-item">
+            <label for="weather-enabled-toggle">Show Weather:</label>
+            <input type="checkbox" id="weather-enabled-toggle"/> 
+        </div>
+        <div class="setting-item">
+            <label>Location:</label>
+            <button id="fetch-location-button" class="setting-item-button secondary">Use My Current Location</button>
+            <span id="location-display" style="font-size: 0.8em; color: #6c757d; margin-left: 10px;">(Location not set)</span>
+        </div>
+    </div>
+    <!-- End Weather Settings -->
 
     <!-- Category Management -->
     <div class="setting-section" id="category-management-section">
@@ -149,6 +180,15 @@
     </div>
   </div>
   <!-- End Import Bookmarks Modal -->
+
+  <!-- Weather Forecast Display (Hidden by default) -->
+  <div id="forecast-display" style="display: none;">
+      <button id="forecast-close-button">×</button>
+      <h4>Weather Forecast</h4>
+      <div id="forecast-content">
+          <!-- Forecast data will be populated here -->
+      </div>
+  </div>
 
   <script src="newtab.js" type="module"></script> 
 </body>

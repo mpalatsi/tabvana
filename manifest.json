@@ -13,16 +13,18 @@
     "bookmarks",
     "storage",
     "tabs",
-    "topSites" 
+    "topSites",
+    "geolocation" 
   ],
   "host_permissions": [
-    "https://duckduckgo.com/*"
+    "https://duckduckgo.com/*",
+    "https://api.open-meteo.com/*"
   ],
   "background": {
     "service_worker": "background.js"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://www.google.com https://*.gstatic.com https://images.unsplash.com data: https:;"
+    "extension_pages": "script-src 'self'; object-src 'self'; img-src 'self' https://www.google.com https://*.gstatic.com https://images.unsplash.com data: https://*.uhdpaper.com https:;"
   },
   "web_accessible_resources": [
     {

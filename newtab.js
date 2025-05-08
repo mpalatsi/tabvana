@@ -23,10 +23,22 @@ function updateTime() {
     timeDisplayElement.textContent = formatTime(now);
 }
 
-function displayWeatherPlaceholder(unit) {
+// Updated function to display current weather in the header
+function updateCurrentWeatherDisplay(unit, currentWeatherData = null) {
     if (!weatherDisplayElement) return;
-    const temp = (unit === 'imperial') ? '64°F' : '18°C';
-    weatherDisplayElement.textContent = temp;
+    let tempText;
+    // TODO: Potentially add a weather icon here based on weather code
+
+    if (currentWeatherData && typeof currentWeatherData.temperature !== 'undefined') {
+        const temp = Math.round(currentWeatherData.temperature);
+        tempText = `${temp}°${unit === 'imperial' ? 'F' : 'C'}`;
+        // Here you could also update an icon using currentWeatherData.weathercode
+        // e.g., weatherIconElement.className = getWeatherIconClass(currentWeatherData.weathercode);
+    } else {
+        // Fallback to placeholder text if no specific data is provided
+        tempText = (unit === 'imperial') ? '--°F' : '--°C'; // More generic placeholder
+    }
+    weatherDisplayElement.textContent = tempText;
 }
 
 function getGreeting() {
@@ -131,9 +143,9 @@ function handleBookmarkGridClick(event) {
       event.preventDefault(); // Prevent link navigation
       const bookmarkId = clickedItem.dataset.bookmarkId;
       const categoryId = clickedItem.dataset.categoryId;
-      if (bookmarkId && categoryId) {
-        handleToggleFavorite(categoryId, bookmarkId);
-      } else {
+    if (bookmarkId && categoryId) {
+      handleToggleFavorite(categoryId, bookmarkId);
+    } else {
         console.warn("[handleBookmarkGridClick] Missing bookmarkId or categoryId on fav toggle in edit mode.");
       }
       return; // Action handled (favorite toggle)
@@ -258,6 +270,20 @@ let settingsToggleButton = null;
 let settingsPanel = null;
 let settingsCloseButton = null;
 let saveSettingsButton = null;
+let fetchLocationButton = null; // Added for the location button
+
+// Forecast Display Elements
+let forecastDisplay = null;
+let forecastContent = null;
+let forecastCloseButton = null;
+
+// Custom Background Elements
+let customBackgroundUrlInput = null;
+let setCustomBackgroundButton = null;
+let clearCustomBackgroundButton = null;
+let customBackgroundFileInput = null;
+let chooseLocalFileButton = null;
+let localFileNameDisplay = null;
 
 // General Settings Inputs
 let unsplashApiKeyInput = null;
@@ -326,8 +352,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- Load Data & Initialize UI ---
   await loadDataAndInitializeUI();
 
-  // --- Add Event Listeners ---
-  setupEventListeners();
 });
 
 function assignDOMElements() {
@@ -344,6 +368,7 @@ function assignDOMElements() {
   settingsPanel = document.getElementById('settings-panel');
   settingsCloseButton = document.getElementById('settings-close-button');
   saveSettingsButton = document.getElementById('save-settings-button');
+  fetchLocationButton = document.getElementById('fetch-location-button'); // Assign the button
   // General Settings
   unsplashApiKeyInput = document.getElementById('unsplash-api-key-input');
   unsplashThemeSelect = document.getElementById('unsplash-theme-select');
@@ -376,6 +401,19 @@ function assignDOMElements() {
   importConfirmButton = document.getElementById('import-confirm-button');
   importCancelButton = document.getElementById('import-cancel-button');
 
+  // --- Assign Forecast Display Elements ---
+  forecastDisplay = document.getElementById('forecast-display');
+  forecastContent = document.getElementById('forecast-content');
+  forecastCloseButton = document.getElementById('forecast-close-button');
+
+  // --- Assign Custom Background Elements ---
+  customBackgroundUrlInput = document.getElementById('custom-background-url-input');
+  setCustomBackgroundButton = document.getElementById('set-custom-background-button');
+  clearCustomBackgroundButton = document.getElementById('clear-custom-background-button');
+  customBackgroundFileInput = document.getElementById('custom-background-file-input');
+  chooseLocalFileButton = document.getElementById('choose-local-file-button');
+  localFileNameDisplay = document.getElementById('local-file-name-display');
+
   // --- Assign Edit Mode Elements ---
   // REMOVE assignment from here: editModeToggleButton = document.getElementById('edit-mode-category-button'); 
 
@@ -403,7 +441,12 @@ function checkDOMElements() {
     importModalOverlay, importModal, importFolderList, importSelectAllButton, importSelectNoneButton, importConfirmButton, importCancelButton,
     // --- Check Edit Mode Elements ---
     // editModeToggleButton 
-    searchForm, searchInput, searchSuggestionsContainer // Check suggestion container
+    searchForm, searchInput, searchSuggestionsContainer, // Check suggestion container
+    // --- Check Forecast Display Elements ---
+    forecastDisplay, forecastContent, forecastCloseButton, // Check forecast display elements
+    // --- Check Custom Background Elements ---
+    customBackgroundUrlInput, setCustomBackgroundButton, clearCustomBackgroundButton,
+    customBackgroundFileInput, chooseLocalFileButton, localFileNameDisplay
   ];
   if (elements.some(el => !el)) {
     console.error('One or more core page elements not found! Check IDs.');
@@ -412,7 +455,7 @@ function checkDOMElements() {
   // Check category bar element separately, as edit button depends on it
   if (!categoryBarElement) {
       console.error('Category bar element (#category-bar) not found! Cannot add buttons.');
-      return false;
+    return false;
   }
   return true;
 }
@@ -426,7 +469,9 @@ async function loadDataAndInitializeUI() {
       searchEngine: storedData[STORAGE_KEY]?.searchEngine || defaultSettings.searchEngine,
       showTopSites: (storedData[STORAGE_KEY]?.showTopSites !== undefined) ? storedData[STORAGE_KEY].showTopSites : defaultSettings.showTopSites,
       themeMode: storedData[STORAGE_KEY]?.themeMode || defaultSettings.themeMode, // Load themeMode
-      categories: (storedData[STORAGE_KEY]?.categories || defaultSettings.categories)
+      categories: (storedData[STORAGE_KEY]?.categories || defaultSettings.categories),
+      customBackgroundUrl: storedData[STORAGE_KEY]?.customBackgroundUrl || null, // Load custom background URL
+      customBackgroundDataUri: storedData[STORAGE_KEY]?.customBackgroundDataUri || null // Load custom background data URI
     };
     console.log('[Tabvana] Data loaded:', tabvanaData);
   } catch (error) {
@@ -444,21 +489,27 @@ async function loadDataAndInitializeUI() {
   if (temperatureUnitSelect) temperatureUnitSelect.value = tabvanaData.temperatureUnit;
   if (searchEngineSelect) searchEngineSelect.value = tabvanaData.searchEngine;
   if (themeModeSelect) themeModeSelect.value = tabvanaData.themeMode; // Initialize themeMode select
+  if (customBackgroundUrlInput) customBackgroundUrlInput.value = tabvanaData.customBackgroundUrl || ''; // Initialize custom background input
 
-  if (backgroundContainerElement && typeof setUnsplashBackground === 'function') {
-    setUnsplashBackground(backgroundContainerElement, tabvanaData.unsplashApiKey, tabvanaData.unsplashTheme, tabvanaData.unsplashQuality);
-  }
+  // Apply background based on loaded settings (custom, Unsplash, or default)
+  await applyBackground(); 
+  // if (backgroundContainerElement && typeof setUnsplashBackground === 'function') { // OLD CALL
+  //   setUnsplashBackground(backgroundContainerElement, tabvanaData.unsplashApiKey, tabvanaData.unsplashTheme, tabvanaData.unsplashQuality);
+  // }
   
   applyThemeMode(tabvanaData.themeMode); // Apply theme on load
 
   if (typeof renderCategoryManagementList === 'function') renderCategoryManagementList();
   if (typeof displayGreeting === 'function') displayGreeting(tabvanaData.userName);
   if (typeof updateTime === 'function') {
-    updateTime();
-    setInterval(updateTime, 1000 * 30);
+  updateTime();
+  setInterval(updateTime, 1000 * 30);
   }
   if (typeof updateDate === 'function') updateDate();
-  if (typeof displayWeatherPlaceholder === 'function') displayWeatherPlaceholder(tabvanaData.temperatureUnit);
+  // Initialize header weather display (will use placeholder initially)
+  if (typeof updateCurrentWeatherDisplay === 'function') updateCurrentWeatherDisplay(tabvanaData.temperatureUnit);
+  // Attempt to load actual weather for the header if location is known
+  if (typeof refreshWeatherHeader === 'function') refreshWeatherHeader();
 
   console.log('[Tabvana] Basic UI setup done. Rendering dynamic elements.');
   
@@ -482,13 +533,13 @@ async function loadDataAndInitializeUI() {
   currentView = 'initial';
   selectedCategoryId = null;
   currentCategory = null;
-  showingInitialView = true; 
+    showingInitialView = true;
   topSitesCache = [];
   try {
     if (tabvanaData.showTopSites && typeof chrome.topSites?.get === 'function') { 
       topSitesCache = await chrome.topSites.get();
       console.log("[Tabvana] Fetched top sites into cache:", topSitesCache.length);
-    } else {
+  } else {
       console.log("[Tabvana] Top sites not shown or API not available.");
     }
   } catch (error) {
@@ -511,12 +562,26 @@ function setupEventListeners() {
   settingsCloseButton.addEventListener('click', toggleSettingsPanel);
   // Save All Settings
   saveSettingsButton.addEventListener('click', handleSaveSettings);
+  // Fetch Location
+  if (fetchLocationButton) { // Add event listener for the new button
+    fetchLocationButton.addEventListener('click', handleFetchLocation);
+  }
   // Category Management
   addCategoryButton.addEventListener('click', handleAddCategory);
   importFirefoxBookmarksButton.addEventListener('click', handleImportBookmarks);
   // Bookmark Management
   addBookmarkButton.addEventListener('click', handleAddBookmark);
   backToCategoriesButton.addEventListener('click', showCategoryManagement);
+
+  // Weather Display Click
+  if (weatherDisplayElement) {
+    weatherDisplayElement.addEventListener('click', handleWeatherDisplayClick);
+  }
+
+  // Forecast Close Button
+  if (forecastCloseButton) {
+    forecastCloseButton.addEventListener('click', hideForecast);
+  }
 
   // --- Search Form Submission ---
   if (searchForm && searchInput) {
@@ -550,7 +615,7 @@ function setupEventListeners() {
 
   // --- Category Bar Listener (handles Home, Categories, AND Edit Mode) ---
   if (categoryBarElement && !categoryBarListenerAttached) {
-    categoryBarElement.addEventListener('click', (event) => {
+  categoryBarElement.addEventListener('click', (event) => {
       console.log(`[Category Bar Listener] Click detected. Target: ${event.target.id || event.target.tagName}, Time: ${event.timeStamp}`);
       
       // Check if already processing a click
@@ -560,7 +625,7 @@ function setupEventListeners() {
       }
       processingCategoryBarClick = true; // Set flag
 
-      const clickedElement = event.target;
+    const clickedElement = event.target;
 
       try { // Use try/finally to ensure flag is reset
           // Explicitly check for the Edit Mode Button by its ID
@@ -578,8 +643,8 @@ function setupEventListeners() {
                 console.log("[Category Bar Listener] Home button identified by ID.");
                 event.preventDefault(); 
                 event.stopPropagation(); 
-                if (!showingInitialView) { 
-                    renderInitialView(); 
+        if (!showingInitialView) { 
+            renderInitialView();
                 }
                 // No return here
             } else {
@@ -591,10 +656,10 @@ function setupEventListeners() {
                   event.preventDefault(); 
                   event.stopPropagation(); 
                   if (selectedCategoryId !== categoryId || showingInitialView) { 
-                       handleCategoryClick(categoryId);
-                  }
+             handleCategoryClick(categoryId);
+        }
                   // No return here
-              } else { 
+    } else {
                 // If click wasn't on any known interactive element inside the bar
                 console.log("[Category Bar Listener] Click was not on a recognized button target.");
               }
@@ -629,6 +694,24 @@ function setupEventListeners() {
   } else {
       // This error might occur if renderCategoriesBar failed silently
       console.error('[Tabvana Setup] Edit Mode button not found! Listener not attached.');
+  }
+
+  // Custom Background Buttons
+  if (setCustomBackgroundButton) {
+    setCustomBackgroundButton.addEventListener('click', handleSetCustomBackground);
+  }
+  if (clearCustomBackgroundButton) {
+    clearCustomBackgroundButton.addEventListener('click', handleClearCustomBackground);
+  }
+  // Local File Chooser
+  if (chooseLocalFileButton && customBackgroundFileInput) {
+      chooseLocalFileButton.addEventListener('click', (event) => {
+          event.preventDefault(); // Prevent default button behavior
+          event.stopPropagation(); // Stop the event from bubbling
+          console.log('Choose file button clicked, programmatically clicking input...'); // Added for debugging
+          customBackgroundFileInput.click(); // Trigger the hidden file input
+      });
+      customBackgroundFileInput.addEventListener('change', handleFileSelected);
   }
 }
 
@@ -960,7 +1043,9 @@ async function prefillSettingsInputs() {
         ...(storedData[STORAGE_KEY] || {}),
         // Ensure searchEngine is included when prefilling
         searchEngine: storedData[STORAGE_KEY]?.searchEngine || defaultSettings.searchEngine,
-        themeMode: storedData[STORAGE_KEY]?.themeMode || defaultSettings.themeMode // Load themeMode for prefill
+        themeMode: storedData[STORAGE_KEY]?.themeMode || defaultSettings.themeMode, // Load themeMode for prefill
+        customBackgroundUrl: storedData[STORAGE_KEY]?.customBackgroundUrl || null, // Load custom background URL
+        customBackgroundDataUri: storedData[STORAGE_KEY]?.customBackgroundDataUri || null // Load custom background data URI
     };
     unsplashApiKeyInput.value = currentData.unsplashApiKey || '';
     unsplashThemeSelect.value = currentData.unsplashTheme || defaultSettings.unsplashTheme;
@@ -970,6 +1055,60 @@ async function prefillSettingsInputs() {
     searchEngineSelect.value = currentData.searchEngine;
     if (themeModeSelect) themeModeSelect.value = currentData.themeMode; // Prefill themeMode select
   } catch (err) { console.error('Error getting settings for panel:', err) };
+}
+
+// --- Fetch Location Logic ---
+async function handleFetchLocation() {
+  const locationDisplay = document.getElementById('location-display');
+  if (!locationDisplay) {
+    console.error('Location display element not found.');
+    return;
+  }
+
+  locationDisplay.textContent = 'Fetching location...';
+
+  if (!navigator.geolocation) {
+    locationDisplay.textContent = 'Geolocation is not supported by your browser.';
+    return;
+  }
+
+  try {
+    const position = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+    });
+
+    const { latitude, longitude } = position.coords;
+    locationDisplay.textContent = `Lat: ${latitude.toFixed(2)}, Lon: ${longitude.toFixed(2)}`;
+
+    // Store the location and update weather if enabled
+    tabvanaData.latitude = latitude;
+    tabvanaData.longitude = longitude;
+    await saveData(); // Save updated coordinates
+    refreshWeatherHeader(true); // Refresh header weather with new location
+
+    // Optionally, trigger a weather update if weather is enabled
+    // This depends on how weather updates are handled elsewhere. 
+    // For now, we'll assume it might be part of a larger save/refresh cycle or a separate function call.
+    console.log('Location fetched and saved:', { latitude, longitude });
+    // Example: if (tabvanaData.weatherEnabled) { fetchWeather(latitude, longitude); }
+
+  } catch (error) {
+    console.error('Error fetching location:', error);
+    if (error.code === error.PERMISSION_DENIED) {
+      locationDisplay.textContent = 'Location permission denied.';
+    } else if (error.code === error.POSITION_UNAVAILABLE) {
+      locationDisplay.textContent = 'Location information is unavailable.';
+    } else if (error.code === error.TIMEOUT) {
+      locationDisplay.textContent = 'Location request timed out.';
+    } else {
+      locationDisplay.textContent = 'Error fetching location.';
+    }
+    // Clear stored coordinates if fetching failed
+    delete tabvanaData.latitude;
+    delete tabvanaData.longitude;
+    await saveData(); // Save the cleared coordinates
+    updateCurrentWeatherDisplay(tabvanaData.temperatureUnit); // Revert to placeholder if location fails
+  }
 }
 
 // === Category & Bookmark Management Logic (Settings Panel) ===
@@ -1224,7 +1363,7 @@ function handleEditBookmarkIcon(categoryId, bookmarkId) {
     // Basic check if it looks like a URL (optional, but helpful)
     if (trimmedUrl && !trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
         alert('Invalid URL. Please enter a full URL starting with http:// or https://, or leave blank to clear.');
-        return;
+            return;
     }
 
     // Update the bookmark
@@ -1302,9 +1441,11 @@ async function handleSaveSettings() {
   tabvanaData.unsplashTheme = unsplashThemeSelect.value;
   tabvanaData.unsplashQuality = unsplashQualitySelect.value;
   tabvanaData.userName = userNameInput.value.trim() || '';
+  const oldTempUnit = tabvanaData.temperatureUnit;
   tabvanaData.temperatureUnit = temperatureUnitSelect.value;
   tabvanaData.searchEngine = searchEngineSelect.value;
   tabvanaData.themeMode = themeModeSelect.value; // Save themeMode
+  tabvanaData.customBackgroundUrl = customBackgroundUrlInput.value.trim() || null; // Save custom background URL
 
   const originalButtonText = saveSettingsButton.textContent;
   saveSettingsButton.disabled = true; // Prevent double-click
@@ -1317,10 +1458,15 @@ async function handleSaveSettings() {
 
   // Update UI based on new settings
   displayGreeting(tabvanaData.userName);
-  if (backgroundContainerElement) {
-    setUnsplashBackground(backgroundContainerElement, tabvanaData.unsplashApiKey, tabvanaData.unsplashTheme, tabvanaData.unsplashQuality);
+  // Apply background based on potentially new settings (custom, Unsplash, or default)
+  await applyBackground();
+  // If temp unit changed, refresh weather data for header
+  if (oldTempUnit !== tabvanaData.temperatureUnit) {
+    refreshWeatherHeader(true);
+  } else {
+    // If unit didn't change, still update display in case other weather data (like snapshot) is present
+    updateCurrentWeatherDisplay(tabvanaData.temperatureUnit, tabvanaData.currentWeatherSnapshot);
   }
-  displayWeatherPlaceholder(tabvanaData.temperatureUnit);
   applyThemeMode(tabvanaData.themeMode); // Apply theme on save
 
   // Reset button after a delay
@@ -1499,11 +1645,11 @@ async function performSelectiveImport(folderIds) {
         for (const child of folderNode.children) {
             if (child.url && !child.url.startsWith('javascript:')) { 
                 currentBookmarksArray.push({
-                    id: generateId(),
-                    title: child.title || 'Untitled Bookmark',
-                    url: child.url,
-                    customIconUrl: null
-                });
+                            id: generateId(),
+                            title: child.title || 'Untitled Bookmark',
+                            url: child.url,
+                            customIconUrl: null
+                        });
                 importedBookmarkCount++; // This can remain global to the outer function
             } else if (child.children) { 
                 console.log(`Processing sub-folder "${child.title}" within "${currentCategoryName}"`);
@@ -2025,9 +2171,9 @@ function renderCurrentView() {
       console.log(`[Tabvana] renderCurrentView - Case 'initial' (default). showTopSites: ${tabvanaData.showTopSites}, topSitesCache count: ${topSitesCache ? topSitesCache.length : '0 or undefined'}`);
       let contentRendered = false;
       if (tabvanaData.showTopSites && topSitesCache && topSitesCache.length > 0) {
-        const topSitesHeader = document.createElement('h3');
-        topSitesHeader.textContent = 'Most Visited';
-        topSitesHeader.className = 'grid-section-header';
+      const topSitesHeader = document.createElement('h3');
+      topSitesHeader.textContent = 'Most Visited';
+      topSitesHeader.className = 'grid-section-header';
         container.appendChild(topSitesHeader);
         renderTopSitesGrid(container, topSitesCache, isEditMode);
         contentRendered = true;
@@ -2053,7 +2199,7 @@ function renderCurrentView() {
           renderEmptyState(container, "Top Sites are disabled. You can enable them in Settings or add Favorites.");
         } else if (!favorites || favorites.length === 0) {
           renderEmptyState(container, "No Top Sites or Favorites to display. They will appear as you browse or add them.");
-        } else {
+      } else {
            renderEmptyState(container, "Welcome! Select a category or add bookmarks via Settings.");
         }
       }
@@ -2253,5 +2399,300 @@ function handleGridEditKeydown(event) {
         event.preventDefault(); // Prevent adding a newline
         titleElement.blur(); // Trigger the blur event to save the title
     }
+}
+
+// === Add the missing weather display functions ===
+
+function displayForecast(data) {
+    if (!forecastContent || !forecastDisplay) return;
+    // Basic formatting - enhance as needed
+    let html = '';
+    if (data.current_weather) {
+        const cw = data.current_weather;
+        const tempUnit = tabvanaData.temperatureUnit === 'imperial' ? '°F' : '°C';
+        // TODO: Add weather icon based on cw.weathercode
+        html += `<p><strong>Now:</strong> ${Math.round(cw.temperature)}${tempUnit}, Wind: ${cw.windspeed} km/h</p>`; // Use appropriate wind unit
+    }
+    if (data.daily) {
+        html += '<h5>Daily Forecast:</h5>';
+        const daily = data.daily;
+        for (let i = 0; i < daily.time.length; i++) {
+            const date = new Date(daily.time[i]);
+            const day = date.toLocaleDateString(undefined, { weekday: 'short' });
+            const maxTemp = Math.round(daily.temperature_2m_max[i]);
+            const minTemp = Math.round(daily.temperature_2m_min[i]);
+            const tempUnit = tabvanaData.temperatureUnit === 'imperial' ? '°F' : '°C';
+            const precipProb = daily.precipitation_probability_max ? daily.precipitation_probability_max[i] : null; // Get probability
+            
+            let dailyHtml = `${day}: ${minTemp}${tempUnit} / ${maxTemp}${tempUnit}`;
+            if (precipProb !== null) {
+                dailyHtml += ` (${precipProb}% rain)`; // Add probability text
+            }
+            // TODO: Add weather icon based on daily.weathercode[i]
+            html += `<p>${dailyHtml}</p>`;
+        }
+    }
+    forecastContent.innerHTML = html || '<p>No forecast data available.</p>';
+    forecastDisplay.style.display = 'block'; // Show the forecast display
+}
+
+function hideForecast() {
+    if (forecastDisplay) {
+        forecastDisplay.style.display = 'none';
+    }
+}
+
+// === End Weather Functionality ===
+
+// === NEW Function to handle clicking the weather display ===
+async function handleWeatherDisplayClick() {
+  if (!tabvanaData.latitude || !tabvanaData.longitude) {
+    // Optionally, prompt user to set location if not available
+    console.warn('[Tabvana Weather] Latitude or longitude not set. Cannot fetch forecast.');
+    // Could show a temporary message in forecastDisplay or an alert
+    if (forecastDisplay && forecastContent) {
+        forecastContent.innerHTML = '<p>Location not set. Please use settings to fetch your location.</p>';
+        forecastDisplay.style.display = 'block';
+        // Auto-hide after a few seconds
+        setTimeout(hideForecast, 3000);
+    }
+    return;
+  }
+
+  if (forecastDisplay && forecastDisplay.style.display === 'block') {
+    hideForecast();
+    return;
+  }
+
+  try {
+    console.log(`[Tabvana Weather] Requesting weather for Lat: ${tabvanaData.latitude}, Lon: ${tabvanaData.longitude}, Unit: ${tabvanaData.temperatureUnit}`);
+    // Show a loading message
+    if (forecastContent) forecastContent.innerHTML = '<p>Loading forecast...</p>';
+    if (forecastDisplay) forecastDisplay.style.display = 'block';
+
+    const response = await new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(
+        {
+          action: "getWeatherForecast",
+          latitude: tabvanaData.latitude,
+          longitude: tabvanaData.longitude,
+          tempUnit: tabvanaData.temperatureUnit
+        },
+        (messageResponse) => {
+          if (chrome.runtime.lastError) {
+            console.error('[Tabvana Weather] Error sending message to background:', chrome.runtime.lastError.message);
+            reject(new Error(chrome.runtime.lastError.message));
+            return;
+          }
+          if (messageResponse && messageResponse.success) {
+            resolve(messageResponse.data);
+          } else {
+            console.error('[Tabvana Weather] Failed to get weather forecast from background:', messageResponse ? messageResponse.error : 'No response');
+            reject(new Error(messageResponse ? messageResponse.error : 'Failed to get weather data'));
+          }
+        }
+      );
+    });
+
+    // Store the fresh data in tabvanaData
+    if (response && response.current_weather) {
+      tabvanaData.currentWeatherSnapshot = response.current_weather;
+      tabvanaData.lastFullForecastData = response; // Store the full forecast data
+    }
+
+    // Update the header display with the current weather from the fetched data
+    if (response && response.current_weather) {
+      updateCurrentWeatherDisplay(tabvanaData.temperatureUnit, response.current_weather);
+    }
+    displayForecast(response); // Display the fetched data
+
+  } catch (error) {
+    console.error('[Tabvana Weather] Error in handleWeatherDisplayClick:', error);
+    if (forecastContent) {
+        forecastContent.innerHTML = '<p>Could not load weather forecast. See console for details.</p>';
+    }
+    if (forecastDisplay && forecastDisplay.style.display !== 'block') {
+        forecastDisplay.style.display = 'block'; // Ensure it's visible to show the error
+    }
+    // Optionally auto-hide error after a few seconds
+    // setTimeout(hideForecast, 5000);
+  }
+}
+
+// === Function to refresh the header weather display ===
+async function refreshWeatherHeader(forceFetch = false) {
+  if (!tabvanaData.latitude || !tabvanaData.longitude) {
+    console.log('[Tabvana Weather Refresh] No location data, ensuring placeholder is shown.');
+    updateCurrentWeatherDisplay(tabvanaData.temperatureUnit); // Show placeholder with current unit
+    return;
+  }
+
+  // For simplicity, we'll always re-fetch if called with forceFetch or if no snapshot exists.
+  // A more complex version could check a timestamp on currentWeatherSnapshot.
+  if (forceFetch || !tabvanaData.currentWeatherSnapshot) {
+    console.log(`[Tabvana Weather Refresh] Fetching new weather data. ForceFetch: ${forceFetch}`);
+    try {
+      const weatherData = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+          {
+            action: "getWeatherForecast",
+            latitude: tabvanaData.latitude,
+            longitude: tabvanaData.longitude,
+            tempUnit: tabvanaData.temperatureUnit
+          },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            if (response && response.success) {
+              resolve(response.data);
+            } else {
+              reject(new Error(response ? response.error : 'Failed to get weather data from background'));
+            }
+          }
+        );
+      });
+
+      if (weatherData && weatherData.current_weather) {
+        tabvanaData.currentWeatherSnapshot = weatherData.current_weather; // Store for header
+        tabvanaData.lastFullForecastData = weatherData; // Store for potential pop-out use
+        updateCurrentWeatherDisplay(tabvanaData.temperatureUnit, weatherData.current_weather);
+        console.log('[Tabvana Weather Refresh] Header weather updated with new data.');
+      } else {
+        console.warn('[Tabvana Weather Refresh] Fetched data is missing current_weather.');
+        updateCurrentWeatherDisplay(tabvanaData.temperatureUnit); // Fallback to placeholder
+      }
+    } catch (error) {
+      console.error('[Tabvana Weather Refresh] Error fetching weather for header:', error);
+      updateCurrentWeatherDisplay(tabvanaData.temperatureUnit); // Fallback to placeholder on error
+    }
+  } else if (tabvanaData.currentWeatherSnapshot) {
+    // We have a snapshot and not forcing fetch, so just update display with existing snapshot
+    console.log('[Tabvana Weather Refresh] Using existing weather snapshot for header.');
+    updateCurrentWeatherDisplay(tabvanaData.temperatureUnit, tabvanaData.currentWeatherSnapshot);
+  }
+}
+
+// --- NEW: Function to apply a custom background URL ---
+function applyCustomBackground(customUrl) {
+  if (backgroundContainerElement && customUrl) {
+    backgroundContainerElement.style.backgroundImage = `url('${customUrl}')`;
+    backgroundContainerElement.style.backgroundSize = 'cover'; // Ensure it covers
+    backgroundContainerElement.style.backgroundPosition = 'center';
+    backgroundContainerElement.style.backgroundRepeat = 'no-repeat';
+    console.log('[Tabvana Background] Applied custom background:', customUrl);
+  } else if (backgroundContainerElement) {
+    // Clear custom background if URL is empty/null, effectively reverting to other methods
+    backgroundContainerElement.style.backgroundImage = ''; 
+    console.log('[Tabvana Background] Custom background URL cleared or invalid.');
+  }
+}
+
+// --- NEW: Main function to decide and apply background ---
+async function applyBackground() {
+  if (tabvanaData.customBackgroundDataUri) {
+    // Prioritize local file data URI
+    applyCustomBackground(tabvanaData.customBackgroundDataUri);
+  } else if (tabvanaData.customBackgroundUrl) {
+    // Fallback to URL
+    applyCustomBackground(tabvanaData.customBackgroundUrl);
+  } else if (tabvanaData.unsplashApiKey) {
+    // Fallback to Unsplash
+    if (backgroundContainerElement) backgroundContainerElement.style.backgroundImage = '';
+    setUnsplashBackground(backgroundContainerElement, tabvanaData.unsplashApiKey, tabvanaData.unsplashTheme, tabvanaData.unsplashQuality);
+  } else {
+    // No custom URL and no Unsplash key, clear any background image (or set a default color/pattern if desired)
+    if (backgroundContainerElement) backgroundContainerElement.style.backgroundImage = '';
+    console.log('[Tabvana Background] No custom URL or Unsplash API key. Background cleared.');
+    // Optionally set a default local background or color here
+    // backgroundContainerElement.style.backgroundColor = '#333'; 
+  }
+}
+
+// --- Custom Background Logic ---
+async function handleSetCustomBackground() {
+  const newUrl = customBackgroundUrlInput.value.trim();
+  if (newUrl) {
+    // Basic validation: check if it looks like a URL (very simple check)
+    if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+      alert('Please enter a valid URL starting with http:// or https://');
+      return;
+    }
+    tabvanaData.customBackgroundUrl = newUrl;
+    tabvanaData.customBackgroundDataUri = null; // Clear data URI when setting URL
+    if (localFileNameDisplay) localFileNameDisplay.textContent = ''; // Clear file name display
+  } else {
+    // If input is empty, effectively clearing it (let clear button handle full clear)
+    //tabvanaData.customBackgroundUrl = null;
+    alert("Please enter a URL or choose a local file."); // Inform user input is empty
+    return; // Don't proceed if URL is empty
+  }
+  await saveData();
+  await applyBackground(); // Re-apply to show the new/cleared custom background or Unsplash
+  // Update input field just in case (e.g. if cleared via empty input)
+  customBackgroundUrlInput.value = tabvanaData.customBackgroundUrl || ''; 
+  alert('Custom background updated!');
+}
+
+async function handleClearCustomBackground() {
+  customBackgroundUrlInput.value = ''; // Clear input field
+  if (localFileNameDisplay) localFileNameDisplay.textContent = ''; // Clear file name display
+  tabvanaData.customBackgroundUrl = null;
+  tabvanaData.customBackgroundDataUri = null; // Clear data URI as well
+  await saveData();
+  await applyBackground(); // Re-apply (will use Unsplash or default)
+  alert('Custom background cleared. Unsplash background (if configured) will now be used.');
+}
+
+// === Category & Bookmark Management Logic (Settings Panel) ===
+// ... existing code ...
+
+// NEW: Handle Local File Selection
+async function handleFileSelected(event) {
+  const file = event.target.files[0];
+  if (!file) {
+    if (localFileNameDisplay) localFileNameDisplay.textContent = '';
+    return;
+  }
+
+  if (!file.type.startsWith('image/')) {
+    alert('Please select a valid image file.');
+    if (localFileNameDisplay) localFileNameDisplay.textContent = '';
+    // Clear the input value so the same file can be selected again if needed after error
+    event.target.value = null; 
+    return;
+  }
+
+  // Display filename
+  if (localFileNameDisplay) localFileNameDisplay.textContent = file.name;
+
+  // Read file as Data URI
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const dataUri = e.target.result;
+    // Basic check for very large files (e.g., > 5MB) - Chrome storage limit is 5MB per item by default
+    if (dataUri.length > 5 * 1024 * 1024) {
+      alert('Warning: Image file is very large (> 5MB) and may not save correctly or may slow down the browser.');
+      // Proceeding anyway, but user is warned.
+    }
+    
+    console.log('[Tabvana Background] Local file read as Data URI (length:', dataUri.length, ')');
+    tabvanaData.customBackgroundUrl = null; // Clear URL setting
+    tabvanaData.customBackgroundDataUri = dataUri; // Store Data URI
+    if (customBackgroundUrlInput) customBackgroundUrlInput.value = ''; // Clear URL input field
+    
+    await saveData();
+    await applyBackground(); // Apply the new background
+  };
+  reader.onerror = (e) => {
+    console.error('[Tabvana Background] Error reading local file:', e);
+    alert('Error reading the selected file.');
+    if (localFileNameDisplay) localFileNameDisplay.textContent = '';
+  };
+  reader.readAsDataURL(file);
+
+  // Clear the input value so the same file can be selected again if needed
+  // event.target.value = null; // Temporarily commented out to debug double-prompt
 }
 
