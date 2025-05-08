@@ -22,7 +22,7 @@ function setLocalBackground(containerElement) {
     return;
   }
   const randomIndex = Math.floor(Math.random() * DEFAULT_BACKGROUNDS.length);
-  const localImageUrl = browser.runtime.getURL(DEFAULT_BACKGROUNDS[randomIndex]);
+  const localImageUrl = chrome.runtime.getURL(DEFAULT_BACKGROUNDS[randomIndex]);
   console.log(`Setting local background: ${localImageUrl}`);
   containerElement.style.backgroundImage = `url('${localImageUrl}')`;
   containerElement.style.backgroundColor = ''; // Remove fallback color
@@ -92,4 +92,12 @@ export async function setUnsplashBackground(containerElement, apiKey, category =
   // --- Fallback to Local Background ---
   console.log('API key missing, invalid, or API failed. Falling back to local background.');
   setLocalBackground(containerElement);
+}
+
+async function getUnsplashImage() {
+  // This function would ideally fetch a new image from Unsplash
+  // For now, it returns a random local background to simulate the feature
+  const randomIndex = Math.floor(Math.random() * DEFAULT_BACKGROUNDS.length);
+  const localImageUrl = chrome.runtime.getURL(DEFAULT_BACKGROUNDS[randomIndex]);
+  return localImageUrl;
 }

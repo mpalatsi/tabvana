@@ -1,8 +1,8 @@
-# FoxBoard - Your Personalized Firefox New Tab
+# Tabvana - Your Personalized New Tab
 
-FoxBoard transforms your Firefox new tab page into a dynamic and customizable dashboard, putting your bookmarks, favorite sites, and a touch of inspiration right where you need them.
+Tabvana transforms your new tab page into a dynamic and customizable dashboard, putting your bookmarks, favorite sites, and a touch of inspiration right where you need them.
 
-![FoxBoard Screenshot 1](assets/screenshots/image.png)
+![Tabvana Screenshot 1](assets/screenshots/image.png)
 
 ## ✨ Features
 
@@ -12,7 +12,7 @@ FoxBoard transforms your Firefox new tab page into a dynamic and customizable da
 *   **Dynamic Unsplash Backgrounds:** Personalize your new tab with beautiful backgrounds fetched daily from Unsplash. Requires a free Unsplash API key. Choose your preferred theme (nature, tech, etc.) and quality.
 *   **Time & Date Display:** Stay informed with the current time and date prominently displayed.
 *   **Search Integration:** Quickly search the web using your preferred search engine directly from the new tab page.
-*   **Settings Panel:** Customize FoxBoard through an accessible settings panel (cog icon):
+*   **Settings Panel:** Customize Tabvana through an accessible settings panel (cog icon):
     *   Manage Unsplash settings (API Key, Theme, Quality).
     *   Set your preferred username for greetings.
     *   Choose temperature units (for future weather features).
@@ -20,15 +20,15 @@ FoxBoard transforms your Firefox new tab page into a dynamic and customizable da
     *   Add, remove, rename, and manage bookmarks within categories.
     *   Import bookmarks from existing Firefox folders.
 
-![FoxBoard Screenshot 2](assets/screenshots/image2.png)
-![FoxBoard Screenshot 3](assets/screenshots/image3.png)
+![Tabvana Screenshot 2](assets/screenshots/image2.png)
+![Tabvana Screenshot 3](assets/screenshots/image3.png)
 
 ## 🚀 Installation & Usage
 
 1.  **Download/Clone:** Get the extension code (e.g., clone the repository).
 2.  **Firefox Add-ons:** Open Firefox, navigate to `about:debugging#/runtime/this-firefox`.
 3.  **Load Temporary Add-on:** Click "Load Temporary Add-on..." and select the `manifest.json` file from the project directory.
-4.  **New Tab:** Open a new tab to see FoxBoard in action!
+4.  **New Tab:** Open a new tab to see Tabvana in action!
 5.  **Homepage (Optional):** You can also set your Firefox homepage to the extension's new tab page if desired.
 
 ## ⚙️ Configuration
@@ -38,7 +38,7 @@ FoxBoard transforms your Firefox new tab page into a dynamic and customizable da
 
 ## 🔐 Permissions Explained
 
-FoxBoard requires the following permissions to function:
+Tabvana requires the following permissions to function:
 
 *   `bookmarks`: To read your bookmark tree (for import and display) and potentially modify bookmarks (if future editing features are added within the extension).
 *   `storage`: To save your settings locally (like Unsplash API key, theme preferences, category states, username, search engine choice).
@@ -47,7 +47,7 @@ FoxBoard requires the following permissions to function:
 
 ## 🔒 Privacy Policy
 
-Your privacy is important. Here's how FoxBoard handles your data:
+Your privacy is important. Here's how Tabvana handles your data:
 
 *   **Data Collected & Stored:**
     *   **Settings:** User preferences such as your chosen Unsplash theme, quality setting, username (optional, for greeting), preferred temperature unit, and selected search engine are stored.

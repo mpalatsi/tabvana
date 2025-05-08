@@ -2,7 +2,9 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  font-family: sans-serif;
+  /* More specific and cross-platform font stack */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 16px; /* Explicit base font size */
   color: #333;
 }
 
@@ -121,6 +123,29 @@ body {
 
 /* Active state is handled by .category-item.active */
 /* Remove redundant .home-button.active rule if present */
+
+/* --- Edit Mode Button Specific Styles --- */
+.edit-mode-button {
+    /* Inherit most styles from .category-item */
+    padding-top: 6px;    
+    padding-bottom: 6px; 
+}
+
+.edit-mode-button-icon {
+    display: block; 
+    width: 20px;   /* Match home icon size */
+    height: 20px;  /* Match home icon size */
+}
+
+/* Active state for the edit mode button itself */
+body.edit-mode-active .edit-mode-button {
+  background-color: rgba(220, 53, 69, 0.7); /* Red background when active */
+  /* Optionally change icon color/filter if using SVG or font icon */
+}
+
+body.edit-mode-active .edit-mode-button:hover {
+  background-color: rgba(190, 33, 49, 0.9);
+}
 
 /* --- Top Bar --- */
 #top-bar {
@@ -510,9 +535,17 @@ body {
 }
 
 .bookmark-item span {
-    display: block; /* Keep as block for potential wrapping */
-    font-size: 0.9em; /* Adjust text size if needed */
-    word-break: break-word; /* Allow long titles to wrap */
+    display: -webkit-box; /* Enables line clamping */
+    -webkit-line-clamp: 2; /* Limit to 2 lines */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.9em;
+    line-height: 1.3; /* Adjust for spacing between lines */
+    /* Calculate max-height for 2 lines: font-size * line-height * num-lines */
+    /* 0.9em (font-size) * 1.3 (line-height) * 2 (lines) = 2.34em */
+    max-height: 2.34em; 
+    word-break: break-all; /* Use break-all to prevent overflow of long strings like URLs */
 }
 
 /* Styling for the message when the bookmark grid is empty */
@@ -691,4 +724,55 @@ body {
 
 .grid-section-header:first-child {
     margin-top: 10px; /* Reduce top margin for the very first header */
+}
+
+/* Styles for when edit mode is active (keep these generic ones if needed) */
+body.edit-mode-active .bookmark-item {
+  /* ... */
+}
+
+/* Make title look editable */
+body.edit-mode-active .editable-title {
+  cursor: text;
+  outline: 1px dashed rgba(255, 255, 255, 0.4); 
+  outline-offset: 2px;
+  padding: 2px 4px; /* Add slight padding */
+  margin: -2px -4px; /* Counteract padding to maintain layout */
+  border-radius: 3px;
+}
+
+body.edit-mode-active .editable-title:focus {
+  outline: 2px solid #007bff;
+  background-color: rgba(0, 0, 0, 0.2); /* Slightly darken background when editing */
+}
+
+/* Make icon look clickable */
+body.edit-mode-active .editable-icon {
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.2s ease;
+  border-radius: 4px; /* Add slight rounding */
+}
+
+body.edit-mode-active .editable-icon:hover {
+  filter: brightness(1.2);
+  transform: scale(1.05);
+  outline: 1px dashed rgba(255, 255, 255, 0.7);
+}
+
+.bookmark-item.dragging {
+  opacity: 0.4;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bookmark-item.drag-over-target {
+  /* Visual cue for where the item will be dropped */
+  outline: 2px dashed #007bff;
+  outline-offset: -2px;
+  background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* If dropping between items, we might need a placeholder element or style the container */
+.bookmark-grid.drag-over-container {
+  /* Example if we need to style the whole grid during drag over */
+  /* background-color: rgba(0,0,0,0.05); */
 }

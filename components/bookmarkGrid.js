@@ -45,7 +45,7 @@ export function renderBookmarkGrid(container, bookmarks, isFavoritesView = false
       favButton.dataset.categoryId = categoryIdToSet;
       favButton.dataset.bookmarkId = bookmark.id;
       favButton.title = bookmark.isFavorite ? 'Unmark as Favorite' : 'Mark as Favorite';
-      favButton.innerHTML = bookmark.isFavorite ? '&#9733;' : '&#9734;'; // Filled star vs empty star
+      favButton.textContent = bookmark.isFavorite ? '★' : '☆'; // Use textContent with Unicode
       if (bookmark.isFavorite) {
         favButton.classList.add('is-favorite');
       }
@@ -58,18 +58,65 @@ export function renderBookmarkGrid(container, bookmarks, isFavoritesView = false
       // --- End Favorite Toggle ---
 
       const img = document.createElement('img');
-      // Use custom icon if available, otherwise fallback to Google favicon service
-      img.src = bookmark.customIconUrl || `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(bookmark.url)}`;
-      img.alt = `${bookmark.title} icon`;
-      img.onerror = (e) => { 
-          // Fallback if custom/Google icon fails (e.g., use a default icon)
-          e.target.src = 'assets/icons/default-bookmark.png'; // Make sure this default icon exists
-          e.target.onerror = null; // Prevent infinite loop if default fails
+      const googleFaviconBase = 'https://www.google.com/s2/favicons?sz=64&domain_url=';
+      const localFallbackSrc = chrome.runtime.getURL('assets/icons/default-favicon.png');
+      const domainUrl = bookmark.url;
+
+      img.alt = (bookmark.title || "Bookmark") + " icon";
+      let primaryIconSrc = bookmark.customIconUrl;
+
+      const setLocalFallback = () => {
+        if (img.src !== localFallbackSrc) {
+          console.log(`[Tabvana] Setting local fallback for ${domainUrl}`);
+          img.src = localFallbackSrc;
+          img.onerror = null;
+          img.onload = null;
+        }
       };
 
-      const span = document.createElement('span');
-      span.textContent = bookmark.title;
+      const tryGoogleFaviconService = () => {
+        const googleSrc = googleFaviconBase + encodeURIComponent(domainUrl);
+        console.log(`[Tabvana] Trying Google Favicon service for ${domainUrl}: ${googleSrc}`);
+        img.src = googleSrc;
+        img.onload = () => {
+          // If Google service returns an invalid image or one that is suspiciously small (e.g., default 16x16 globe when we asked for 64)
+          if (!img.complete || typeof img.naturalWidth === "undefined" || img.naturalWidth === 0 || img.naturalWidth < 32) { 
+            console.log(`[Tabvana] Google Favicon for ${domainUrl} (${img.src}) seems invalid/tiny (dims: ${img.naturalWidth}x${img.naturalHeight}). Setting local fallback.`);
+            setLocalFallback();
+          } else {
+            console.log(`[Tabvana] Google Favicon for ${domainUrl} loaded successfully (dims: ${img.naturalWidth}x${img.naturalHeight}).`);
+            img.onload = null;
+          }
+        };
+        img.onerror = () => {
+          console.log(`[Tabvana] Error loading Google Favicon for ${domainUrl}. Setting local fallback.`);
+          setLocalFallback();
+        };
+      };
 
+      if (primaryIconSrc) {
+        console.log(`[Tabvana] Trying primary icon for ${domainUrl}: ${primaryIconSrc}`);
+        img.src = primaryIconSrc;
+        img.onload = () => {
+          if (!img.complete || typeof img.naturalWidth === "undefined" || img.naturalWidth === 0 || img.naturalWidth <= 2) {
+            console.log(`[Tabvana] Primary icon ${primaryIconSrc} for ${domainUrl} invalid/tiny. Trying Google Favicon service.`);
+            tryGoogleFaviconService();
+          } else {
+            console.log(`[Tabvana] Primary icon ${primaryIconSrc} for ${domainUrl} loaded successfully.`);
+            img.onload = null;
+          }
+        };
+        img.onerror = () => {
+          console.log(`[Tabvana] Error loading primary icon ${primaryIconSrc} for ${domainUrl}. Trying Google Favicon service.`);
+          tryGoogleFaviconService();
+        };
+      } else {
+        tryGoogleFaviconService();
+      }
+      // Ensure NO old onerror is lingering here for the renderBookmarkGrid img
+
+      const span = document.createElement('span');
+      span.textContent = bookmark.title || bookmark.url;
       item.appendChild(img);
       item.appendChild(span);
       grid.appendChild(item);
@@ -77,8 +124,11 @@ export function renderBookmarkGrid(container, bookmarks, isFavoritesView = false
   }
   
   if (container) {
-    // Clear container ONLY if it was provided
-    container.innerHTML = ''; 
+    // Clear container ONLY if it was provided using a safer method
+    // container.innerHTML = ''; 
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
     container.appendChild(grid);
     return null; // Indicate grid was appended directly
   } else {
@@ -88,7 +138,7 @@ export function renderBookmarkGrid(container, bookmarks, isFavoritesView = false
 
 /**
  * Renders a grid for Top Sites.
- * @param {Array<Object>} topSites - Array of Top Site objects from browser.topSites.get().
+ * @param {Array<Object>} topSites - Array of Top Site objects from chrome.topSites.get().
  * @returns {HTMLElement | null} The grid element or null if no sites.
  */
 export function renderTopSitesGrid(topSites) {
@@ -108,17 +158,65 @@ export function renderTopSitesGrid(topSites) {
         item.rel = "noopener noreferrer";
 
         const img = document.createElement('img');
-        // Use faviconURL if provided by the API, otherwise fallback
-        img.src = site.favicon || `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(site.url)}`;
-        img.alt = `${site.title || 'Site'} icon`;
-        img.onerror = (e) => {
-            e.target.src = 'assets/icons/default-bookmark.png'; // Fallback icon
-            e.target.onerror = null;
+        const googleFaviconBase = 'https://www.google.com/s2/favicons?sz=64&domain_url='; // Renamed for local scope
+        const localFallbackSrc = chrome.runtime.getURL('assets/icons/default-favicon.png'); // Renamed for local scope
+        const domainUrl = site.url; // Use site.url here
+
+        img.alt = (site.title || 'Site') + " icon";
+        let primaryIconSrc = site.favicon; // Use site.favicon for top sites
+
+        const setLocalFallback = () => { // Renamed for local scope
+          if (img.src !== localFallbackSrc) {
+            console.log(`[Tabvana] Setting local fallback for top site ${domainUrl}`);
+            img.src = localFallbackSrc;
+            img.onerror = null;
+            img.onload = null;
+          }
         };
 
-        const span = document.createElement('span');
-        span.textContent = site.title || site.url.split('/')[2]; // Use title or domain
+        const tryGoogleFaviconService = () => { // Renamed for local scope
+          const googleSrc = googleFaviconBase + encodeURIComponent(domainUrl);
+          console.log(`[Tabvana] Trying Google Favicon service for top site ${domainUrl}: ${googleSrc}`);
+          img.src = googleSrc;
+          img.onload = () => {
+            // If Google service returns an invalid image or one that is suspiciously small
+            if (!img.complete || typeof img.naturalWidth === "undefined" || img.naturalWidth === 0 || img.naturalWidth < 32) {
+              console.log(`[Tabvana] Google Favicon for top site ${domainUrl} (${img.src}) seems invalid/tiny (dims: ${img.naturalWidth}x${img.naturalHeight}). Setting local fallback.`);
+              setLocalFallback();
+            } else {
+              console.log(`[Tabvana] Google Favicon for top site ${domainUrl} loaded successfully (dims: ${img.naturalWidth}x${img.naturalHeight}).`);
+              img.onload = null;
+            }
+          };
+          img.onerror = () => {
+            console.log(`[Tabvana] Error loading Google Favicon for top site ${domainUrl}. Setting local fallback.`);
+            setLocalFallback();
+          };
+        };
 
+        if (primaryIconSrc) {
+          console.log(`[Tabvana] Trying primary icon for top site ${domainUrl}: ${primaryIconSrc}`);
+          img.src = primaryIconSrc;
+          img.onload = () => {
+            if (!img.complete || typeof img.naturalWidth === "undefined" || img.naturalWidth === 0 || img.naturalWidth <= 2) {
+              console.log(`[Tabvana] Primary top site icon ${primaryIconSrc} for ${domainUrl} invalid/tiny. Trying Google Favicon service.`);
+              tryGoogleFaviconService();
+            } else {
+              console.log(`[Tabvana] Primary top site icon ${primaryIconSrc} for ${domainUrl} loaded successfully.`);
+              img.onload = null;
+            }
+          };
+          img.onerror = () => {
+            console.log(`[Tabvana] Error loading primary top site icon ${primaryIconSrc} for ${domainUrl}. Trying Google Favicon service.`);
+            tryGoogleFaviconService();
+          };
+        } else {
+          tryGoogleFaviconService();
+        }
+        // Ensure NO old onerror is lingering here for the renderTopSitesGrid img
+
+        const span = document.createElement('span');
+        span.textContent = site.title || site.url.split('/')[2];
         item.appendChild(img);
         item.appendChild(span);
         grid.appendChild(item);

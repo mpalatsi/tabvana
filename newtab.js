@@ -1,9 +1,8 @@
 // No longer importing bookmarkGrid initially
 // import { renderBookmarkGrid } from './components/bookmarkGrid.js';
 import { setUnsplashBackground } from './components/unsplashBackground.js';
-import { renderBookmarkGrid, renderTopSitesGrid } from './components/bookmarkGrid.js';
 
-console.log('FoxBoard newtab.js loaded');
+console.log('Tabvana newtab.js loaded');
 
 // === Utility Functions (Define BEFORE use) ===
 
@@ -72,7 +71,7 @@ async function handleToggleFavorite(categoryId, bookmarkId) {
   console.log(`[handleToggleFavorite] Attempting to toggle fav for CatID: ${categoryId}, BM ID: ${bookmarkId}`);
   let bookmarkFound = false;
   try {
-    const category = foxboardData.categories.find(c => c.id === categoryId);
+    const category = tabvanaData.categories.find(c => c.id === categoryId);
     console.log(`[handleToggleFavorite] Found category:`, category);
     if (category && category.bookmarks) {
       const bookmark = category.bookmarks.find(b => b.id === bookmarkId);
@@ -116,23 +115,58 @@ async function handleToggleFavorite(categoryId, bookmarkId) {
 }
 
 // === Handle clicks within the main bookmark grid === 
-// MOVED EARLIER (depends on handleToggleFavorite)
 function handleBookmarkGridClick(event) {
-  console.log("[handleBookmarkGridClick] Grid click detected."); // Log grid click
-  const toggleButton = event.target.closest('.favorite-toggle-button');
-  if (toggleButton) {
-    console.log("[handleBookmarkGridClick] Favorite toggle button found:", toggleButton);
-    const bookmarkId = toggleButton.dataset.bookmarkId;
-    const categoryId = toggleButton.dataset.categoryId; // Get category ID from button
-    console.log(`[handleBookmarkGridClick] Bookmark ID: ${bookmarkId}, Category ID: ${categoryId}`);
-    if (bookmarkId && categoryId) {
-      console.log("[handleBookmarkGridClick] Conditions met, attempting to call handleToggleFavorite..."); // Add log here
-      handleToggleFavorite(categoryId, bookmarkId);
-    } else {
-      console.warn("[handleBookmarkGridClick] Missing bookmarkId or categoryId on toggle button.");
+  const clickedItem = event.target.closest('.bookmark-item');
+  
+  // If the click wasn't inside a bookmark item at all, do nothing here.
+  if (!clickedItem) {
+    console.log("[handleBookmarkGridClick] Click outside a bookmark item.");
+    return;
+  }
+
+  // Click IS inside a bookmark item. Now check edit mode.
+  const favoriteButton = event.target.closest('.favorite-toggle-button');
+
+  if (isEditMode) {
+    console.log("[handleBookmarkGridClick] Edit mode is active.");
+    // If the click was specifically on the favorite button, handle it.
+    if (favoriteButton) {
+      console.log("[handleBookmarkGridClick] Favorite toggle clicked in edit mode.");
+      event.preventDefault(); // Prevent link nav even for fav button
+      const bookmarkId = clickedItem.dataset.bookmarkId;
+      const categoryId = clickedItem.dataset.categoryId;
+      if (bookmarkId && categoryId) {
+        handleToggleFavorite(categoryId, bookmarkId);
+      }
+      return; // Handled favorite toggle
     }
+
+    // For ANY other click within the bookmark item (icon, title, background) 
+    // while in edit mode, prevent the default link navigation.
+    // Specific edit actions (like icon modal, title blur) are handled by 
+    // separate delegated listeners (handleGridEditClick, handleGridEditBlur).
+    console.log("[handleBookmarkGridClick] Preventing default link navigation for item click in edit mode.");
+    event.preventDefault();
+    // No return here, event might bubble further if needed, but default is prevented.
+
   } else {
-      console.log("[handleBookmarkGridClick] Click was not on a favorite toggle button.");
+    // --- NOT in Edit Mode --- 
+    console.log("[handleBookmarkGridClick] Edit mode is NOT active.");
+    // If the click was on the favorite button, handle it and prevent navigation.
+    if (favoriteButton) {
+      console.log("[handleBookmarkGridClick] Favorite toggle clicked in normal mode.");
+      event.preventDefault(); // Prevent link nav for fav button
+      const bookmarkId = clickedItem.dataset.bookmarkId;
+      const categoryId = clickedItem.dataset.categoryId;
+      if (bookmarkId && categoryId) {
+        handleToggleFavorite(categoryId, bookmarkId);
+      } else {
+        console.warn("[handleBookmarkGridClick] Missing bookmarkId or categoryId on toggle button.");
+      }
+    } else {
+      // Click was within the item but not on the favorite button - allow default link navigation.
+      console.log("[handleBookmarkGridClick] Item click (not fav toggle) in normal mode - allowing navigation.");
+    }
   }
 }
 
@@ -142,11 +176,11 @@ function getAllFavoriteBookmarks() {
   console.log("[getAllFavs] Starting..."); // Log start
   let favorites = []; 
   try {
-      if (!Array.isArray(foxboardData.categories)) {
-          console.error("[getAllFavs] foxboardData.categories is not an array!", foxboardData.categories);
+      if (!Array.isArray(tabvanaData.categories)) {
+          console.error("[getAllFavs] tabvanaData.categories is not an array!", tabvanaData.categories);
           return []; // Return empty array on error
       }
-      foxboardData.categories.forEach((category, index) => {
+      tabvanaData.categories.forEach((category, index) => {
         console.log(`[getAllFavs] Processing category ${index}:`, category?.name);
         if (category && category.bookmarks && Array.isArray(category.bookmarks)) { // Add checks
           category.bookmarks.forEach((bookmark, bmIndex) => {
@@ -170,7 +204,7 @@ function getAllFavoriteBookmarks() {
 }
 
 // --- Constants & Defaults ---
-const STORAGE_KEY = 'foxboardData';
+const STORAGE_KEY = 'tabvanaData';
 const defaultSettings = {
     unsplashApiKey: null,
     unsplashTheme: 'nature',
@@ -178,6 +212,7 @@ const defaultSettings = {
     userName: '',
     temperatureUnit: 'metric',
     searchEngine: 'duckduckgo',
+    showTopSites: true,
     categories: [
         { id: 'work', name: 'Work', bookmarks: [] },
         { id: 'personal', name: 'Personal', bookmarks: [] }
@@ -219,7 +254,7 @@ const SEARCH_ENGINES = {
 };
 
 // --- State ---
-let foxboardData = { ...defaultSettings }; // Initialize with defaults
+let tabvanaData = { ...defaultSettings }; // Initialize with defaults
 let selectedCategoryId = null; // For main view
 let showingInitialView = true; // Declare the variable here
 let selectedCategoryForManagement = null; // For settings panel
@@ -274,13 +309,27 @@ let importSelectNoneButton = null;
 let importConfirmButton = null;
 let importCancelButton = null;
 
+// --- Edit Mode State ---
+let isEditMode = false;
+let editModeToggleButton = null; // Will be assigned in renderCategoriesBar
+
 // --- Search Elements ---
 let searchForm = null;
 let searchInput = null;
 
+let draggedItemData = null; // To store { categoryId, bookmarkId, originalIndex }
+
+let currentView = 'initial'; // Keep track of current view state (initial, category, favorites, search)
+let currentCategory = null; // Stores the currently selected category object if view is 'category'
+let currentSearchResults = [];
+let topSitesCache = [];
+
+let categoryBarListenerAttached = false;
+let processingCategoryBarClick = false; // <<< New flag
+
 // Make the DOMContentLoaded async to use await for storage
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('FoxBoard DOM fully loaded and parsed');
+  console.log('Tabvana DOM fully loaded and parsed');
 
   // --- Assign All DOM Elements ---
   assignDOMElements();
@@ -341,6 +390,9 @@ function assignDOMElements() {
   importConfirmButton = document.getElementById('import-confirm-button');
   importCancelButton = document.getElementById('import-cancel-button');
 
+  // --- Assign Edit Mode Elements ---
+  // REMOVE assignment from here: editModeToggleButton = document.getElementById('edit-mode-category-button'); 
+
   // Initialize UI elements (make sure IDs match HTML)
   timeDisplayElement = document.getElementById('time-display');
   dateDisplayElement = document.getElementById('date-display');
@@ -362,66 +414,103 @@ function checkDOMElements() {
     bookmarkManagementSection, bookmarkSectionTitle, bookmarkListElement, newBookmarkTitleInput, newBookmarkUrlInput, addBookmarkButton, backToCategoriesButton,
     // --- Check Modal Elements ---
     importModalOverlay, importModal, importFolderList, importSelectAllButton, importSelectNoneButton, importConfirmButton, importCancelButton,
-    // Remove Search Elements Check
-    searchForm, searchInput
+    // --- Check Edit Mode Elements ---
+    // editModeToggleButton 
   ];
   if (elements.some(el => !el)) {
-    console.error('One or more required page elements not found!');
+    console.error('One or more core page elements not found! Check IDs.');
     return false;
+  }
+  // Check category bar element separately, as edit button depends on it
+  if (!categoryBarElement) {
+      console.error('Category bar element (#category-bar) not found! Cannot add buttons.');
+      return false;
   }
   return true;
 }
 
 async function loadDataAndInitializeUI() {
   try {
-    const storedData = await browser.storage.local.get(STORAGE_KEY);
-    // Merge stored data with defaults, ensuring structure exists
-    foxboardData = {
+    const storedData = await chrome.storage.local.get(STORAGE_KEY);
+    tabvanaData = {
       ...defaultSettings,
       ...(storedData[STORAGE_KEY] || {}),
-      // Ensure searchEngine exists in the loaded data
       searchEngine: storedData[STORAGE_KEY]?.searchEngine || defaultSettings.searchEngine,
-      // Ensure categories array exists even if storage was empty/malformed
+      showTopSites: (storedData[STORAGE_KEY]?.showTopSites !== undefined) ? storedData[STORAGE_KEY].showTopSites : defaultSettings.showTopSites,
       categories: (storedData[STORAGE_KEY]?.categories || defaultSettings.categories)
     };
-    console.log('Loaded data:', foxboardData);
+    console.log('[Tabvana] Data loaded:', tabvanaData);
   } catch (error) {
     console.error('Error loading data from storage:', error);
-    foxboardData = { ...defaultSettings }; // Fallback to defaults on error
+    tabvanaData = { ...defaultSettings };
   }
 
-  // Populate the Unsplash theme dropdown
   populateUnsplashThemeDropdown();
-  // Populate the Search Engine dropdown
   populateSearchEngineDropdown();
 
-  // Pre-fill General Settings Inputs
-  unsplashApiKeyInput.value = foxboardData.unsplashApiKey || '';
-  unsplashThemeSelect.value = foxboardData.unsplashTheme || defaultSettings.unsplashTheme;
-  unsplashQualitySelect.value = foxboardData.unsplashQuality;
-  userNameInput.value = foxboardData.userName;
-  temperatureUnitSelect.value = foxboardData.temperatureUnit;
-  searchEngineSelect.value = foxboardData.searchEngine;
+  if (unsplashApiKeyInput) unsplashApiKeyInput.value = tabvanaData.unsplashApiKey || '';
+  if (unsplashThemeSelect) unsplashThemeSelect.value = tabvanaData.unsplashTheme || defaultSettings.unsplashTheme;
+  if (unsplashQualitySelect) unsplashQualitySelect.value = tabvanaData.unsplashQuality;
+  if (userNameInput) userNameInput.value = tabvanaData.userName;
+  if (temperatureUnitSelect) temperatureUnitSelect.value = tabvanaData.temperatureUnit;
+  if (searchEngineSelect) searchEngineSelect.value = tabvanaData.searchEngine;
 
-  // Initial UI Setup
-  setUnsplashBackground(backgroundContainerElement, foxboardData.unsplashApiKey, foxboardData.unsplashTheme, foxboardData.unsplashQuality);
-  renderCategoriesBar(); // Render bottom bar
-  renderCategoryManagementList(); // Render categories in settings
-  displayGreeting(foxboardData.userName);
-  updateTime();
-  setInterval(updateTime, 1000 * 30);
-  updateDate();
-  displayWeatherPlaceholder(foxboardData.temperatureUnit);
-
-  // NEW: Render initial view (Top Sites + Favorites) if no category was pre-selected
-  console.log(`[loadDataAndInitializeUI] Checking condition: !selectedCategoryId. Value: ${selectedCategoryId}`); // Log check
-  if (!selectedCategoryId) {
-    renderInitialView();
-    showingInitialView = true;
-  } else {
-    handleCategoryClick(selectedCategoryId); // Render the pre-selected category
-    showingInitialView = false;
+  if (backgroundContainerElement && typeof setUnsplashBackground === 'function') {
+    setUnsplashBackground(backgroundContainerElement, tabvanaData.unsplashApiKey, tabvanaData.unsplashTheme, tabvanaData.unsplashQuality);
   }
+  
+  if (typeof renderCategoryManagementList === 'function') renderCategoryManagementList();
+  if (typeof displayGreeting === 'function') displayGreeting(tabvanaData.userName);
+  if (typeof updateTime === 'function') {
+    updateTime();
+    setInterval(updateTime, 1000 * 30);
+  }
+  if (typeof updateDate === 'function') updateDate();
+  if (typeof displayWeatherPlaceholder === 'function') displayWeatherPlaceholder(tabvanaData.temperatureUnit);
+
+  console.log('[Tabvana] Basic UI setup done. Rendering dynamic elements.');
+  
+  // Render category bar (which now also creates and assigns editModeToggleButton)
+  if (typeof renderCategoriesBar === 'function') {
+    renderCategoriesBar(); 
+  } else {
+    console.error('[Tabvana] renderCategoriesBar function is not defined! Cannot proceed.');
+    return; // Stop if critical render function missing
+  }
+  
+  // Setup event listeners AFTER the category bar (including the edit button) is created.
+  if (typeof setupEventListeners === 'function') {
+      setupEventListeners();
+  } else {
+       console.error('[Tabvana] setupEventListeners function is not defined! Cannot proceed.');
+       return;
+  }
+
+  // Fetch Top Sites and Render Initial View
+  currentView = 'initial';
+  selectedCategoryId = null;
+  currentCategory = null;
+  showingInitialView = true; 
+  topSitesCache = [];
+  try {
+    if (tabvanaData.showTopSites && typeof chrome.topSites?.get === 'function') { 
+      topSitesCache = await chrome.topSites.get();
+      console.log("[Tabvana] Fetched top sites into cache:", topSitesCache.length);
+    } else {
+      console.log("[Tabvana] Top sites not shown or API not available.");
+    }
+  } catch (error) {
+    console.error('[Tabvana] Error fetching top sites:', error);
+    topSitesCache = []; 
+  }
+
+  if (typeof renderCurrentView === 'function') {
+    renderCurrentView(); // Render the initial grid content
+  } else {
+    console.error('[Tabvana] renderCurrentView function is not defined!');
+  }
+  
+  console.log('[Tabvana] loadDataAndInitializeUI finished.');
 }
 
 function setupEventListeners() {
@@ -432,7 +521,7 @@ function setupEventListeners() {
   saveSettingsButton.addEventListener('click', handleSaveSettings);
   // Category Management
   addCategoryButton.addEventListener('click', handleAddCategory);
-  importFirefoxBookmarksButton.addEventListener('click', handleImportFirefoxBookmarks);
+  importFirefoxBookmarksButton.addEventListener('click', handleImportBookmarks);
   // Bookmark Management
   addBookmarkButton.addEventListener('click', handleAddBookmark);
   backToCategoriesButton.addEventListener('click', showCategoryManagement);
@@ -457,43 +546,87 @@ function setupEventListeners() {
   importConfirmButton.addEventListener('click', handleConfirmImportSelection);
   // --- End Modal Listeners ---
 
-  // Main Category Bar Clicks
-  categoryBarElement.addEventListener('click', (event) => {
-    const clickedElement = event.target;
-    const targetButton = clickedElement.closest('.category-item'); 
-    console.log("[Category Bar Listener] Click detected on target:", clickedElement, "Closest button:", targetButton);
+  // --- Category Bar Listener (handles Home, Categories, AND Edit Mode) ---
+  if (categoryBarElement && !categoryBarListenerAttached) {
+    categoryBarElement.addEventListener('click', (event) => {
+      console.log(`[Category Bar Listener] Click detected. Target: ${event.target.id || event.target.tagName}, Time: ${event.timeStamp}`);
+      
+      // Check if already processing a click
+      if (processingCategoryBarClick) {
+          console.warn('[Category Bar Listener] Already processing a click, ignoring re-entrant event.');
+          return;
+      }
+      processingCategoryBarClick = true; // Set flag
 
-    // Handle direct click on home button OR its parent having the ID
-    if (clickedElement.id === 'home-category-button' || targetButton?.id === 'home-category-button') { 
-        console.log("[Category Bar Listener] Home button identified.");
-        console.log(`[Category Bar Listener] Current showingInitialView state: ${showingInitialView}`);
-        if (!showingInitialView) { 
-            console.log("[Category Bar Listener] Calling renderInitialView...");
-            renderInitialView();
-            console.log("[Category Bar Listener] renderInitialView called.");
-        } else {
-            console.log("[Category Bar Listener] Already showing initial view, doing nothing.");
-        }
-    // Handle click on other category items (ensure it's not the home button)
-    } else if (targetButton && targetButton.dataset.categoryId) { 
-        const categoryId = targetButton.dataset.categoryId;
-        console.log(`[Category Bar Listener] Target button ID: ${targetButton.id}`); // Log the button ID
-        console.log(`[Category Bar Click] Category button clicked: ${categoryId}`);
-        if (selectedCategoryId !== categoryId) { 
-             handleCategoryClick(categoryId);
-        }
-    } else {
-        console.log("[Category Bar Listener] Click was not on a recognized button.");
-    }
-  });
+      const clickedElement = event.target;
 
-  // NEW: Add listener for clicks within the bookmark grid (for favorite toggles)
-  console.log('[setupEventListeners] Checking bookmarkGridContainer:', bookmarkGridContainer); // Log element check
-  if (bookmarkGridContainer) {
-    bookmarkGridContainer.addEventListener('click', handleBookmarkGridClick); // NOW handleBookmarkGridClick should be defined
-    console.log('[setupEventListeners] Added click listener to bookmarkGridContainer.'); // Confirm listener added
+      try { // Use try/finally to ensure flag is reset
+          // Explicitly check for the Edit Mode Button by its ID
+          const editButtonTarget = clickedElement.closest('#edit-mode-category-button');
+          if (editButtonTarget) {
+              console.log("[Category Bar Listener] Edit Mode button identified by ID.");
+              event.preventDefault(); 
+              event.stopPropagation(); 
+              toggleEditMode();
+              // No return here, let it fall through to finally
+          } else {
+            // Check for Home button click by ID
+            const homeButtonTarget = clickedElement.closest('#home-category-button');
+            if (homeButtonTarget) { 
+                console.log("[Category Bar Listener] Home button identified by ID.");
+                event.preventDefault(); 
+                event.stopPropagation(); 
+                if (!showingInitialView) { 
+                    renderInitialView(); 
+                }
+                // No return here
+            } else {
+              // Check for Category button click using data attribute
+              const categoryButtonTarget = clickedElement.closest('.category-item[data-category-id]');
+              if (categoryButtonTarget) {
+                  const categoryId = categoryButtonTarget.dataset.categoryId;
+                  console.log(`[Category Bar Listener] Category button identified by data-attribute: ${categoryId}`);
+                  event.preventDefault(); 
+                  event.stopPropagation(); 
+                  if (selectedCategoryId !== categoryId || showingInitialView) { 
+                       handleCategoryClick(categoryId);
+                  }
+                  // No return here
+              } else { 
+                // If click wasn't on any known interactive element inside the bar
+                console.log("[Category Bar Listener] Click was not on a recognized button target.");
+              }
+            } 
+          }
+      } finally {
+         processingCategoryBarClick = false; // Reset flag in finally block
+         console.log(`[Category Bar Listener] Finished processing click. Time: ${event.timeStamp}`);
+      }
+    });
+    categoryBarListenerAttached = true;
+    console.log('[Tabvana Setup] Added DELEGATED click listener to categoryBarElement.');
+  } else if (categoryBarElement && categoryBarListenerAttached) {
+    console.log('[Tabvana Setup] Category bar listener ALREADY ATTACHED.');
   } else {
-    console.warn('[setupEventListeners] Bookmark grid container NOT found, cannot add favorite toggle listener.');
+    console.error('[Tabvana Setup] Category bar element not found for listener!');
+  }
+
+  // --- Bookmark Grid Container Listener ---
+  if (bookmarkGridContainer) {
+    bookmarkGridContainer.addEventListener('click', handleBookmarkGridClick); 
+    console.log('[Tabvana Setup] Added click listener to bookmarkGridContainer.');
+  } else {
+    console.warn('[Tabvana Setup] Bookmark grid container NOT found for listener.');
+  }
+
+  // --- Edit Mode Toggle Listener ---
+  // Now that renderCategoriesBar has run, editModeToggleButton should be assigned.
+  if (editModeToggleButton) {
+      editModeToggleButton.addEventListener('click', toggleEditMode);
+      console.log('[Tabvana Setup] Added listener to Edit Mode button.');
+  } else {
+      // This error might occur if renderCategoriesBar failed silently
+      console.error('[Tabvana Setup] Edit Mode button not found! Listener not attached.');
   }
 }
 
@@ -507,7 +640,7 @@ function handleSearchSubmit(event) {
         return; // Don't search if input is empty
     }
 
-    const engineKey = foxboardData.searchEngine; // Get from loaded data
+    const engineKey = tabvanaData.searchEngine; // Get from loaded data
     const engine = SEARCH_ENGINES[engineKey];
 
     if (engine) {
@@ -525,7 +658,7 @@ function handleSearchSubmit(event) {
 // --- Data Persistence ---
 async function saveData() {
   try {
-    await browser.storage.local.set({ [STORAGE_KEY]: foxboardData });
+    await chrome.storage.local.set({ [STORAGE_KEY]: tabvanaData });
     console.log('Data saved successfully.');
   } catch (error) {
     console.error('Error saving data:', error);
@@ -534,8 +667,11 @@ async function saveData() {
 
 // --- Category Bar Rendering (Bottom Bar) ---
 function renderCategoriesBar() {
-  if (!categoryBarElement) return;
-  categoryBarElement.innerHTML = ''; // Clear existing
+  if (!categoryBarElement) {
+      console.error("[Tabvana] Cannot render category bar: element not found.");
+      return;
+  }
+  categoryBarElement.innerHTML = ''; 
 
   // --- Add Home Button ---
   const homeButton = document.createElement('button');
@@ -558,7 +694,7 @@ function renderCategoriesBar() {
   categoryBarElement.appendChild(homeButton);
   // --- End Home Button ---
 
-  foxboardData.categories.forEach(category => {
+  tabvanaData.categories.forEach(category => {
     const categoryElement = document.createElement('button');
     categoryElement.className = 'category-item';
     categoryElement.textContent = category.name;
@@ -569,6 +705,25 @@ function renderCategoriesBar() {
     }
     categoryBarElement.appendChild(categoryElement);
   });
+
+  // --- Add Edit Mode Toggle Button ---
+  const editButton = document.createElement('button');
+  editButton.className = 'category-item edit-mode-button';
+  editButton.id = 'edit-mode-category-button';
+  editButton.title = 'Toggle Edit Mode';
+
+  const editIcon = document.createElement('img');
+  editIcon.src = 'assets/icons/pencil.png';
+  editIcon.alt = 'Edit';
+  editIcon.className = 'edit-mode-button-icon';
+  
+  editButton.appendChild(editIcon);
+  categoryBarElement.appendChild(editButton);
+  
+  // Assign the created button to the global variable HERE
+  editModeToggleButton = editButton; 
+  console.log('[Tabvana] Edit mode button created and assigned.');
+  // --- End Edit Mode Button ---
 }
 
 // --- Settings Panel UI Rendering ---
@@ -576,7 +731,7 @@ function renderCategoryManagementList() {
   if (!categoryListElement) return;
   categoryListElement.innerHTML = ''; // Clear list
 
-  foxboardData.categories.forEach(category => {
+  tabvanaData.categories.forEach(category => {
     const li = document.createElement('li');
     li.dataset.categoryId = category.id;
 
@@ -638,7 +793,7 @@ function toggleSettingsPanel() {
 // Helper to prefill settings
 async function prefillSettingsInputs() {
   try {
-    const storedData = await browser.storage.local.get(STORAGE_KEY);
+    const storedData = await chrome.storage.local.get(STORAGE_KEY);
     const currentData = {
         ...defaultSettings, 
         ...(storedData[STORAGE_KEY] || {}),
@@ -668,7 +823,7 @@ function handleAddCategory() {
     bookmarks: []
   };
 
-  foxboardData.categories.push(newCategory);
+  tabvanaData.categories.push(newCategory);
   newCategoryNameInput.value = ''; // Clear input
   renderCategoryManagementList(); // Re-render list in settings
   renderCategoriesBar(); // Re-render bottom bar
@@ -676,7 +831,7 @@ function handleAddCategory() {
 }
 
 function handleDeleteCategory(categoryId) {
-  const category = foxboardData.categories.find(c => c.id === categoryId);
+  const category = tabvanaData.categories.find(c => c.id === categoryId);
   if (!category) return;
 
   // Confirmation
@@ -684,7 +839,7 @@ function handleDeleteCategory(categoryId) {
     return;
   }
 
-  foxboardData.categories = foxboardData.categories.filter(c => c.id !== categoryId);
+  tabvanaData.categories = tabvanaData.categories.filter(c => c.id !== categoryId);
   renderCategoryManagementList();
   renderCategoriesBar();
   saveData();
@@ -692,7 +847,7 @@ function handleDeleteCategory(categoryId) {
 
 // TODO: handleRenameCategory
 function handleRenameCategory(categoryId) {
-    const category = foxboardData.categories.find(c => c.id === categoryId);
+    const category = tabvanaData.categories.find(c => c.id === categoryId);
     if (!category) return;
 
     const newName = prompt(`Enter new name for category "${category.name}":`, category.name);
@@ -731,7 +886,7 @@ function showCategoryManagement() {
 
 function showBookmarkManagement(categoryId) {
   selectedCategoryForManagement = categoryId;
-  const category = foxboardData.categories.find(c => c.id === categoryId);
+  const category = tabvanaData.categories.find(c => c.id === categoryId);
   if (!category) return;
 
   categoryManagementSection.style.display = 'none';
@@ -742,7 +897,7 @@ function showBookmarkManagement(categoryId) {
 }
 
 function renderBookmarkManagementList(categoryId) {
-    const category = foxboardData.categories.find(c => c.id === categoryId);
+    const category = tabvanaData.categories.find(c => c.id === categoryId);
     if (!category || !bookmarkListElement) {
         bookmarkListElement.innerHTML = '<p>Error: Category not found.</p>';
         return;
@@ -832,7 +987,7 @@ function handleAddBookmark() {
         return;
     }
 
-    const category = foxboardData.categories.find(c => c.id === selectedCategoryForManagement);
+    const category = tabvanaData.categories.find(c => c.id === selectedCategoryForManagement);
     if (!category) return;
 
     const newBookmark = {
@@ -859,7 +1014,7 @@ function handleAddBookmark() {
 }
 
 function handleDeleteBookmark(categoryId, bookmarkId) {
-    const category = foxboardData.categories.find(c => c.id === categoryId);
+    const category = tabvanaData.categories.find(c => c.id === categoryId);
     if (!category || !category.bookmarks) return;
 
     const bookmarkIndex = category.bookmarks.findIndex(b => b.id === bookmarkId);
@@ -882,52 +1037,45 @@ function handleDeleteBookmark(categoryId, bookmarkId) {
 
 // --- New Function: Handle Editing Bookmark Icon ---
 function handleEditBookmarkIcon(categoryId, bookmarkId) {
-    const category = foxboardData.categories.find(c => c.id === categoryId);
+    const category = tabvanaData.categories.find(c => c.id === categoryId);
     if (!category || !category.bookmarks) return;
 
     const bookmark = category.bookmarks.find(b => b.id === bookmarkId);
     if (!bookmark) return;
 
     const currentIconUrl = bookmark.customIconUrl || '';
-    const newIconUrlInput = prompt(`Enter new icon URL for "${bookmark.title}" (leave blank to clear custom icon):`, currentIconUrl);
+    const newIconUrl = prompt(`Enter new icon URL for "${bookmark.title}":\n(Leave blank to clear custom icon)`, currentIconUrl);
 
-    if (newIconUrlInput === null) {
+    if (newIconUrl === null) {
+        console.log('[Tabvana Edit Icon] User cancelled prompt.');
         return; // User cancelled
     }
 
-    const newIconUrl = newIconUrlInput.trim();
+    const trimmedUrl = newIconUrl.trim();
 
-    if (newIconUrl === currentIconUrl) {
+    if (trimmedUrl === currentIconUrl) {
+        console.log('[Tabvana Edit Icon] URL unchanged.');
         return; // No change
     }
 
-    if (newIconUrl) {
-        // Basic validation: check if it looks like a URL (starts with http/https)
-        if (!newIconUrl.startsWith('http://') && !newIconUrl.startsWith('https://')) {
-            alert('Invalid URL. Please enter a valid image URL starting with http:// or https://, or leave blank to clear.');
-            return;
-        }
-         // You could add more robust URL validation or image checking here if needed
-        bookmark.customIconUrl = newIconUrl;
-        console.log(`Custom icon URL set for "${bookmark.title}": ${newIconUrl}`);
-    } else {
-        bookmark.customIconUrl = null; // Clear the custom icon
-        console.log(`Custom icon URL cleared for "${bookmark.title}".`);
+    // Basic check if it looks like a URL (optional, but helpful)
+    if (trimmedUrl && !trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+        alert('Invalid URL. Please enter a full URL starting with http:// or https://, or leave blank to clear.');
+        return;
     }
 
-    // Re-render list in settings (to reflect potential change) and save
-    renderBookmarkManagementList(categoryId);
-    // Re-render main view if this category is currently selected
-    if (selectedCategoryId === categoryId) {
-        handleCategoryClick(categoryId); // Re-render the main grid
-    }
+    // Update the bookmark
+    bookmark.customIconUrl = trimmedUrl || null; // Set to null if blank
+    console.log(`[Tabvana Edit Icon] Set customIconUrl for ${bookmarkId} to:`, bookmark.customIconUrl);
+
     saveData();
+    renderCurrentView(); // Re-render to show the new icon (or fallback)
 }
 // --- End New Function ---
 
 // TODO: handleEditBookmark
 function handleEditBookmark(categoryId, bookmarkId) {
-    const category = foxboardData.categories.find(c => c.id === categoryId);
+    const category = tabvanaData.categories.find(c => c.id === categoryId);
     if (!category || !category.bookmarks) return;
 
     const bookmark = category.bookmarks.find(b => b.id === bookmarkId);
@@ -986,29 +1134,29 @@ function handleEditBookmark(categoryId, bookmarkId) {
 
 // === Global Save Button Logic ===
 async function handleSaveSettings() {
-  // Update general settings in foxboardData object
-  foxboardData.unsplashApiKey = unsplashApiKeyInput.value.trim() || null;
-  foxboardData.unsplashTheme = unsplashThemeSelect.value;
-  foxboardData.unsplashQuality = unsplashQualitySelect.value;
-  foxboardData.userName = userNameInput.value.trim() || '';
-  foxboardData.temperatureUnit = temperatureUnitSelect.value;
-  foxboardData.searchEngine = searchEngineSelect.value;
+  // Update general settings in tabvanaData object
+  tabvanaData.unsplashApiKey = unsplashApiKeyInput.value.trim() || null;
+  tabvanaData.unsplashTheme = unsplashThemeSelect.value;
+  tabvanaData.unsplashQuality = unsplashQualitySelect.value;
+  tabvanaData.userName = userNameInput.value.trim() || '';
+  tabvanaData.temperatureUnit = temperatureUnitSelect.value;
+  tabvanaData.searchEngine = searchEngineSelect.value;
 
   const originalButtonText = saveSettingsButton.textContent;
   saveSettingsButton.disabled = true; // Prevent double-click
   saveSettingsButton.textContent = 'Saving...';
 
-  await saveData(); // Save the entire updated foxboardData object
+  await saveData(); // Save the entire updated tabvanaData object
 
-  console.log('Settings saved:', foxboardData);
+  console.log('Settings saved:', tabvanaData);
   saveSettingsButton.textContent = 'Saved!';
 
   // Update UI based on new settings
-  displayGreeting(foxboardData.userName);
+  displayGreeting(tabvanaData.userName);
   if (backgroundContainerElement) {
-    setUnsplashBackground(backgroundContainerElement, foxboardData.unsplashApiKey, foxboardData.unsplashTheme, foxboardData.unsplashQuality);
+    setUnsplashBackground(backgroundContainerElement, tabvanaData.unsplashApiKey, tabvanaData.unsplashTheme, tabvanaData.unsplashQuality);
   }
-  displayWeatherPlaceholder(foxboardData.temperatureUnit);
+  displayWeatherPlaceholder(tabvanaData.temperatureUnit);
 
   // Reset button after a delay
   setTimeout(() => {
@@ -1020,37 +1168,24 @@ async function handleSaveSettings() {
 // === Main View Logic (Displaying Content) ===
 
 function handleCategoryClick(categoryId) {
-    if (!mainContentElement) return;
+    console.log(`[Tabvana] handleCategoryClick: Category selected: ${categoryId}`);
+    const category = tabvanaData.categories.find(c => c.id === categoryId);
 
-    console.log(`Category selected: ${categoryId}`);
-    selectedCategoryId = categoryId; // Update selected state for main view
-    showingInitialView = false; // No longer showing initial view
-    console.log("[handleCategoryClick] Set showingInitialView to:", showingInitialView); // Log state change
-
-    // Clear only the bookmark area
-    console.log("[handleCategoryClick] Clearing main content...");
-    clearMainContent();
-
-    // Find the category data
-    const category = foxboardData.categories.find(c => c.id === categoryId);
-    const bookmarkContainer = document.getElementById('bookmark-grid-container'); // Get the dedicated container
-
-    if (category && category.bookmarks && bookmarkContainer) {
-        console.log(`[handleCategoryClick] Rendering bookmarks for category: ${category.name}`);
-        // Pass categoryId to renderBookmarkGrid for favorite toggling context
-        // Explicitly pass categoryId as the 4th argument
-        renderBookmarkGrid(bookmarkContainer, category.bookmarks, false, categoryId); 
-        // The renderBookmarkGrid now handles appending if container is provided 
-        console.log(`[handleCategoryClick] Bookmark grid rendering should be complete.`);
-
+    if (category) {
+        selectedCategoryId = categoryId;
+        currentCategory = category; // Set the global currentCategory object
+        currentView = 'category';
+        showingInitialView = false;
+        console.log(`[Tabvana] handleCategoryClick: Set currentView to 'category', currentCategory to: ${category.name}`);
     } else {
-        console.warn(`Category data or bookmarks not found for ID: ${categoryId}, or container missing.`);
-        if (bookmarkContainer) {
-             bookmarkContainer.innerHTML = '<p style="margin-top: 5vh;">Error: Could not load bookmarks for this category.</p>'; // Error placeholder in container
-        }
+        console.warn(`[Tabvana] handleCategoryClick: Category with ID ${categoryId} not found. Staying on current view: ${currentView}`);
+        // Optionally revert to initial view or show error
+        // currentView = 'initial'; // Or some error state
+        // selectedCategoryId = null;
+        // currentCategory = null;
     }
-
-    renderCategoriesBar(); // Re-render bar to show active state
+    renderCategoriesBar(); // Update category bar for active state
+    renderCurrentView();
 }
 
 // --- Function to Open/Close Modal ---
@@ -1073,39 +1208,55 @@ function selectAllImportCheckboxes(checked) {
 }
 
 // --- Updated Function to INITIATE Import (Opens Modal) ---
-async function handleImportFirefoxBookmarks() {
+async function handleImportBookmarks() {
     console.log('Opening import selection modal...');
     try {
-        const tree = await browser.bookmarks.getTree();
+        const tree = await chrome.bookmarks.getTree();
         console.log('Bookmark tree fetched:', tree);
 
-        const topLevelFolders = [];
-        const rootNode = tree[0]; // The actual root
+        const foldersToDisplay = [];
+        if (tree.length > 0 && tree[0].children) {
+            const rootChildren = tree[0].children;
 
-        // Common roots for user bookmarks
-        const userBookmarkRoots = ['menu________', 'toolbar_____', 'unfiled_____', 'mobile______'];
-        // We also want to explicitly exclude the absolute root node itself
-        const excludedFolderIDs = ['root________', ...userBookmarkRoots];
+            // Iterate through the main children of the root (e.g., "Bookmarks Bar", "Other Bookmarks")
+            for (const mainFolder of rootChildren) {
+                if (mainFolder.children && mainFolder.children.length > 0) {
+                    // If this main folder itself is one we typically want to list its children from
+                    // (e.g., "Bookmarks Bar", "Other Bookmarks", "Mobile Bookmarks")
+                    // For simplicity, let's list all folders directly under these main roots.
+                    // More sophisticated filtering could be added here if needed (e.g. by title or known IDs of these roots)
 
-        function findUserFolders(node) {
-            // Check if the current node is a folder and not one of the excluded roots
-            if (node.type === 'folder' && !excludedFolderIDs.includes(node.id)) {
-                // Add this folder to the list
-                topLevelFolders.push({ id: node.id, title: node.title || 'Untitled Folder' });
-            }
+                    // Add the main folder itself if it's not just a root container like "Bookmarks Menu"
+                    // Check if it's a user-meaningful folder.
+                    // Standard IDs: Bookmarks Bar: "1", Other: "2", Mobile: often "3"
+                    // Non-standard IDs for menu, etc. are like 'menu________'
+                    if (mainFolder.id && !mainFolder.id.endsWith("________")) {
+                         foldersToDisplay.push({ id: mainFolder.id, title: mainFolder.title || 'Untitled Folder' });
+                    }
 
-            // If the node has children, recursively call findUserFolders for each child
-            if (node.children) {
-                node.children.forEach(child => {
-                    findUserFolders(child);
-                });
+
+                    // And add its children if they are folders
+                    mainFolder.children.forEach(subFolder => {
+                        // Check if it's a folder (some items might be bookmarks, not folders)
+                        // A more reliable check for a folder is the presence of a `children` array,
+                        // or if `type` property exists and is 'folder'.
+                        // Not all bookmark nodes have a `type` property.
+                        if (subFolder.children !== undefined) { // It's a folder if it can have children
+                             foldersToDisplay.push({ id: subFolder.id, title: subFolder.title || 'Untitled Folder' });
+                        }
+                    });
+                } else if (mainFolder.children === undefined && mainFolder.url === undefined) {
+                    // This is a folder without children directly under the root (e.g. user created folder at top level)
+                     if (mainFolder.id && !mainFolder.id.endsWith("________")) { // Avoid system folders
+                        foldersToDisplay.push({ id: mainFolder.id, title: mainFolder.title || 'Untitled Folder' });
+                     }
+                }
             }
         }
-
-        findUserFolders(rootNode);
         
-        // Filter out duplicates (though unlikely for top-level folders)
-        const uniqueFolders = Array.from(new Map(topLevelFolders.map(f => [f.id, f])).values());
+        // Filter out duplicates (e.g. if a main folder and its subfolder got added with similar logic)
+        // A simple Map based on ID should suffice for uniqueness
+        const uniqueFolders = Array.from(new Map(foldersToDisplay.map(f => [f.id, f])).values());
 
         populateImportModal(uniqueFolders);
         openModal();
@@ -1160,42 +1311,45 @@ async function performSelectiveImport(folderIds) {
     let importedBookmarkCount = 0;
     let categoriesAdded = 0;
     let categoriesMerged = 0;
+    let bookmarksToAdd = []; // Declare bookmarksToAdd here, outside the loop
+
+    // Helper function to recursively extract bookmarks
+    async function extractBookmarksRecursive(folderNode, currentCategoryName, currentBookmarksArray) {
+        if (!folderNode.children) return;
+
+        for (const child of folderNode.children) {
+            if (child.url && !child.url.startsWith('javascript:')) { 
+                currentBookmarksArray.push({
+                    id: generateId(),
+                    title: child.title || 'Untitled Bookmark',
+                    url: child.url,
+                    customIconUrl: null
+                });
+                importedBookmarkCount++; // This can remain global to the outer function
+            } else if (child.children) { 
+                console.log(`Processing sub-folder "${child.title}" within "${currentCategoryName}"`);
+                await extractBookmarksRecursive(child, currentCategoryName, currentBookmarksArray); // Pass the array along
+            }
+        }
+    }
 
     try {
         for (const folderId of folderIds) {
-            const subTreeNodes = await browser.bookmarks.getSubTree(folderId);
-            if (!subTreeNodes || subTreeNodes.length === 0) continue; // Skip if subtree is empty
+            const subTreeNodes = await chrome.bookmarks.getSubTree(folderId);
+            if (!subTreeNodes || subTreeNodes.length === 0) continue; 
             
-            const folderNode = subTreeNodes[0]; // The root of the subtree is the folder itself
+            const folderNode = subTreeNodes[0]; 
             const categoryName = folderNode.title || 'Untitled Folder';
-            const bookmarksToAdd = [];
+            bookmarksToAdd = []; // Reset for each new top-level selected folder being processed
 
-            if (folderNode.children) {
-                folderNode.children.forEach(child => {
-                    // Only import direct children that are actual bookmarks with URLs
-                    if (child.type === 'bookmark' && child.url && !child.url.startsWith('place:')) {
-                        bookmarksToAdd.push({
-                            id: generateId(),
-                            title: child.title || 'Untitled Bookmark',
-                            url: child.url,
-                            customIconUrl: null
-                        });
-                        importedBookmarkCount++;
-                    } else if (child.type === 'bookmark') {
-                        console.log(`Skipping non-URL or place: bookmark: ${child.title} in ${categoryName}`);
-                    }
-                    // We are ignoring sub-folders within the selected folder for simplicity
-                });
-            }
+            console.log(`Extracting bookmarks from selected folder: "${categoryName}" (ID: ${folderId})`);
+            await extractBookmarksRecursive(folderNode, categoryName, bookmarksToAdd); // Pass the fresh array
 
             if (bookmarksToAdd.length > 0) {
-                // Check if category already exists (case-insensitive)
-                let existingCategory = foxboardData.categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+                let existingCategory = tabvanaData.categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
 
                 if (existingCategory) {
                     console.log(`Merging ${bookmarksToAdd.length} bookmarks into existing category "${categoryName}".`);
-                    // Basic merge: just concat. Add duplicate checking if needed.
-                     // Simple duplicate check based on URL
                     const existingUrls = new Set(existingCategory.bookmarks.map(b => b.url));
                     const uniqueNewBookmarks = bookmarksToAdd.filter(b => !existingUrls.has(b.url));
                     if (uniqueNewBookmarks.length < bookmarksToAdd.length) {
@@ -1205,7 +1359,7 @@ async function performSelectiveImport(folderIds) {
                     if (uniqueNewBookmarks.length > 0) categoriesMerged++;
                 } else {
                     console.log(`Adding new category "${categoryName}" with ${bookmarksToAdd.length} bookmarks.`);
-                    foxboardData.categories.push({
+                    tabvanaData.categories.push({
                         id: generateId(),
                         name: categoryName,
                         bookmarks: bookmarksToAdd
@@ -1213,19 +1367,15 @@ async function performSelectiveImport(folderIds) {
                     categoriesAdded++;
                 }
             } else {
-                console.log(`Selected folder "${categoryName}" contained no direct bookmarks to import.`);
+                console.log(`Selected folder "${categoryName}" (and its subfolders) contained no direct bookmarks to import or only duplicates.`);
             }
         }
 
-        // Update UI and save if any changes were made
         if (categoriesAdded > 0 || categoriesMerged > 0) {
             renderCategoryManagementList();
             renderCategoriesBar();
             await saveData();
-            alert(`Import complete!
-Bookmarks added/merged: ${importedBookmarkCount}
-New categories created: ${categoriesAdded}
-Categories updated: ${categoriesMerged}`);
+            alert(`Import complete!\nBookmarks added/merged: ${importedBookmarkCount}\nNew categories created: ${categoriesAdded}\nCategories updated: ${categoriesMerged}`);
         } else {
             alert('Import finished. No new bookmarks were added (folders might have been empty or contained only duplicates/subfolders).');
         }
@@ -1295,64 +1445,592 @@ function updateDate() {
 
 // === NEW: Initial View Rendering (Top Sites + Favorites) ===
 async function renderInitialView() {
-  console.log("[renderInitialView] Starting..."); // Log start
-  if (!bookmarkGridContainer) {
-    console.error("[renderInitialView] Bookmark grid container not found!");
-    return;
-  }
+  console.log("[Tabvana] renderInitialView Starting...");
+  currentView = 'initial';
+  selectedCategoryId = null;
+  currentCategory = null; // Ensure currentCategory is reset
   showingInitialView = true;
-  selectedCategoryId = null; 
-  bookmarkGridContainer.innerHTML = ''; 
-  renderCategoriesBar(); 
 
-  const fragment = document.createDocumentFragment();
-
-  // --- Render Favorites --- 
-  const favorites = getAllFavoriteBookmarks();
-  console.log("[renderInitialView] Fetched favorites:", favorites); // Log favorites
-  if (favorites.length > 0) {
-    // ... (add header) ...
-    console.log("[renderInitialView] Calling renderBookmarkGrid for favorites...");
-    const favoritesGrid = renderBookmarkGrid(null, favorites, true); 
-    if (favoritesGrid) {
-        fragment.appendChild(favoritesGrid);
-        console.log("[renderInitialView] Appended favorites grid.");
-    } else {
-        console.warn("[renderInitialView] renderBookmarkGrid for favorites returned null.");
-    }
-  }
-
-  // --- Render Top Sites --- 
+  // Fetch top sites first
   try {
-    console.log("[renderInitialView] Fetching top sites...");
-    const topSites = await browser.topSites.get({ includeFavicon: true, limit: 12 }); 
-    console.log("[renderInitialView] Fetched top sites:", topSites);
-    if (topSites && topSites.length > 0) {
-      // --- Add Header ---
-      const topSitesHeader = document.createElement('h3');
-      topSitesHeader.textContent = 'Most Visited';
-      topSitesHeader.className = 'grid-section-header';
-      console.log("[renderInitialView] Appending Top Sites header:", topSitesHeader);
-      fragment.appendChild(topSitesHeader);
-      // -----------------
-      
-      console.log("[renderInitialView] Calling renderTopSitesGrid...");
-      const topSitesGrid = renderTopSitesGrid(topSites);
-      if (topSitesGrid) {
-          fragment.appendChild(topSitesGrid);
-          console.log("[renderInitialView] Appended top sites grid.");
-      } else {
-           console.warn("[renderInitialView] renderTopSitesGrid returned null.");
-      }
+    if (tabvanaData.showTopSites) {
+      topSitesCache = await chrome.topSites.get();
+      console.log("[Tabvana] renderInitialView: Fetched top sites into cache:", topSitesCache.length);
     }
   } catch (error) {
-    console.error('[renderInitialView] Error fetching/rendering top sites:', error);
-    // ... (display error message) ...
+    console.error('[Tabvana] renderInitialView: Error fetching top sites:', error);
+    topSitesCache = [];
+  }
+  
+  renderCategoriesBar(); // Update category bar for active state
+  renderCurrentView(); // This will now use the 'initial' case
+  console.log("[Tabvana] renderInitialView Finished.");
+}
+
+// --- Function to Open/Close Icon Search Modal ---
+function openIconSearchModal(categoryId, bookmarkId, bookmarkTitle) {
+    currentIconSearchCategoryId = categoryId;
+    currentIconSearchBookmarkId = bookmarkId;
+
+    if (iconSearchModalTitle) {
+        iconSearchModalTitle.textContent = `Find Icon for "${bookmarkTitle}"`;
+    }
+    if (iconSearchInput) {
+        iconSearchInput.value = bookmarkTitle; // Pre-fill search with bookmark title
+    }
+    if (iconResultsGrid) {
+        iconResultsGrid.innerHTML = ''; // Clear previous results
+    }
+    if (iconSearchStatus) {
+        iconSearchStatus.textContent = ''; // Clear status
+    }
+
+    if (iconSearchModalOverlay) {
+        iconSearchModalOverlay.style.display = 'flex';
+    }
+}
+
+function closeIconSearchModal() {
+    if (iconSearchModalOverlay) {
+        iconSearchModalOverlay.style.display = 'none';
+    }
+    currentIconSearchCategoryId = null; // Clear context
+    currentIconSearchBookmarkId = null;
+}
+
+// --- Edit Mode Toggle Function ---
+function toggleEditMode() {
+  isEditMode = !isEditMode;
+  console.log(`[Tabvana] Edit mode toggled: ${isEditMode}`);
+  document.body.classList.toggle('edit-mode-active', isEditMode);
+
+  // Update the button's title hint
+  if (editModeToggleButton) { 
+    if (isEditMode) {
+      editModeToggleButton.title = "Exit Edit Mode & Save Changes";
+      // Change icon appearance or button background via CSS class body.edit-mode-active
+      // No need to change icon src if we style the button background based on body class
+    } else {
+      editModeToggleButton.title = "Toggle Edit Mode";
+      // Save any pending changes when exiting edit mode
+      saveData();
+    }
+  } else {
+    console.error('[Tabvana] ToggleEditMode: Edit mode button not found!');
   }
 
-  // ... (handle empty message logic) ...
-
-  console.log("[renderInitialView] Appending fragment to container.");
-  bookmarkGridContainer.appendChild(fragment);
-  console.log("[renderInitialView] Finished.");
+  // Re-render grids to apply/remove draggable attributes etc.
+  // Delay this call slightly to ensure the current event cycle completes first
+  setTimeout(() => {
+    console.log('[Tabvana] Executing delayed renderCurrentView after toggle.');
+    renderCurrentView(); 
+  }, 0); 
 }
+
+// Helper to create a grid (either main bookmark grid or top sites grid)
+function createGrid(container, isFavoritesGrid = false, isTopSites = false) {
+  console.log(`[Tabvana] createGrid called. For container: ${container?.id}, isFavorites: ${isFavoritesGrid}, isTopSites: ${isTopSites}`);
+  let grid = document.createElement('div');
+  grid.className = 'bookmark-grid'; // Base class
+
+  if (isTopSites) {
+    grid.classList.add('top-sites-grid');
+  } else if (isFavoritesGrid) {
+    grid.classList.add('favorites-grid');
+  }
+  // If no specific type, it's a regular category bookmark grid, already has 'bookmark-grid'
+
+  // If a container is passed, this function is expected to append the new grid to it.
+  // The calling functions (renderBookmarkGrid/renderTopSitesGrid) will handle clearing the container first.
+  if (container) {
+    // The calling function now clears the container, so we just append here.
+    // container.innerHTML = ''; // No longer clear here
+    container.appendChild(grid);
+    console.log('[Tabvana] createGrid: Appended new grid to container.');
+    return grid; // Return the grid that was appended to the container
+  } else {
+    // If no container, the caller wants a new grid element to manage itself.
+    console.log('[Tabvana] createGrid: Created new grid element (no container provided).');
+    return grid; // Return the newly created grid element
+  }
+}
+
+function renderBookmarkGrid(container, bookmarks, isFavoritesView = false, currentCategoryId = null, isEditModeActive = false) {
+  console.log('[Tabvana] renderBookmarkGrid called.');
+  console.log('[Tabvana] renderBookmarkGrid - Container ID:', container?.id);
+  console.log('[Tabvana] renderBookmarkGrid - Bookmarks defined:', !!bookmarks);
+  if (bookmarks) console.log('[Tabvana] renderBookmarkGrid - Bookmarks count:', bookmarks.length);
+  console.log('[Tabvana] renderBookmarkGrid - CategoryID:', currentCategoryId);
+  console.log(`[Tabvana] renderBookmarkGrid called. Container: ${container?.id}, Bookmarks defined: ${!!bookmarks}, CategoryID: ${currentCategoryId}, EditMode: ${isEditModeActive}`);
+  if (bookmarks) console.log(`[Tabvana] renderBookmarkGrid bookmarks count: ${bookmarks.length}`);
+  const gridElement = container.querySelector('.bookmark-grid:not(.top-sites-grid):not(.favorites-grid)') || 
+                      (isFavoritesView ? container.querySelector('.favorites-grid') : null) || 
+                      createGrid(container, isFavoritesView, false); // last param isTopSites = false
+  gridElement.innerHTML = ''; // Clear previous items
+
+  if (!bookmarks || bookmarks.length === 0) {
+    renderEmptyState(gridElement, isFavoritesView ? "No favorites yet!" : "No bookmarks in this category yet. Add some!");
+    return;
+  }
+
+  bookmarks.forEach((bookmark, index) => {
+    const item = document.createElement('a');
+    item.href = bookmark.url;
+    item.target = "_blank";
+    item.rel = "noopener noreferrer";
+    item.className = 'bookmark-item';
+    item.dataset.bookmarkId = bookmark.id;
+    if (currentCategoryId) {
+      item.dataset.categoryId = currentCategoryId;
+    }
+
+    const favButton = document.createElement('button');
+    favButton.textContent = bookmark.isFavorite ? '★' : '☆';
+    favButton.title = bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites';
+    favButton.className = 'favorite-toggle-button';
+    favButton.onclick = () => handleToggleFavorite(currentCategoryId, bookmark.id);
+
+    item.appendChild(favButton);
+
+    // --- Restore detailed Icon Loading Logic --- 
+    const img = document.createElement('img');
+    const googleFaviconBase = 'https://www.google.com/s2/favicons?sz=64&domain_url=';
+    const localFallbackSrc = chrome.runtime.getURL('assets/icons/default-favicon.png');
+    const domainUrl = bookmark.url;
+
+    img.alt = (bookmark.title || "Bookmark") + " icon";
+    let primaryIconSrc = bookmark.customIconUrl;
+
+    const setLocalFallback = () => {
+      if (img.src !== localFallbackSrc) {
+        console.log(`[Tabvana ICON] Setting local fallback for ${domainUrl}`);
+        img.src = localFallbackSrc;
+        img.onerror = null; // Prevent loops if fallback also fails
+        img.onload = null;
+      }
+    };
+
+    const tryGoogleFaviconService = () => {
+      const googleSrc = googleFaviconBase + encodeURIComponent(domainUrl);
+      console.log(`[Tabvana ICON] Trying Google Favicon service for ${domainUrl}: ${googleSrc}`);
+      img.src = googleSrc;
+      img.onload = () => {
+        if (!img.complete || typeof img.naturalWidth === "undefined" || img.naturalWidth === 0 || img.naturalWidth < 32) { 
+          console.log(`[Tabvana ICON] Google Favicon for ${domainUrl} invalid/tiny. Setting fallback.`);
+          setLocalFallback();
+        } else {
+          console.log(`[Tabvana ICON] Google Favicon for ${domainUrl} loaded successfully.`);
+          img.onload = null; 
+        }
+      };
+      img.onerror = () => {
+        console.log(`[Tabvana ICON] Error loading Google Favicon for ${domainUrl}. Setting fallback.`);
+        setLocalFallback();
+      };
+    };
+
+    if (primaryIconSrc) {
+      console.log(`[Tabvana ICON] Trying primary (custom) icon for ${domainUrl}: ${primaryIconSrc}`);
+      img.src = primaryIconSrc;
+      img.onload = () => {
+         if (!img.complete || typeof img.naturalWidth === "undefined" || img.naturalWidth === 0 || img.naturalWidth <= 2) { // Check if primary loaded ok
+            console.log(`[Tabvana ICON] Primary icon ${primaryIconSrc} invalid/tiny. Trying Google Service.`);
+            tryGoogleFaviconService();
+          } else {
+            console.log(`[Tabvana ICON] Primary icon ${primaryIconSrc} loaded successfully.`);
+            img.onload = null; // Clear handler if loaded successfully
+          }
+      };
+      img.onerror = () => {
+        console.log(`[Tabvana ICON] Error loading primary icon ${primaryIconSrc}. Trying Google Service.`);
+        tryGoogleFaviconService();
+      };
+    } else {
+      // No custom URL, try Google service directly
+      tryGoogleFaviconService();
+    }
+    // --- End Icon Loading Logic ---
+
+    // Add specific class and title hint for icon editing when in edit mode
+    if (isEditModeActive) {
+      img.classList.add('editable-icon'); 
+      img.title = 'Click to change icon'; 
+    }
+    item.appendChild(img);
+
+    const span = document.createElement('span');
+    span.textContent = bookmark.title || bookmark.url;
+    // Make title editable in edit mode
+    if (isEditModeActive) {
+      span.contentEditable = "true";
+      span.classList.add('editable-title'); 
+      span.title = 'Click to edit title'; 
+      // Prevent dragging directly on the title when editing
+      span.draggable = false; 
+      // Stop drag initiation from title span specifically
+      span.addEventListener('dragstart', (e) => {
+          e.preventDefault();
+          e.stopPropagation(); 
+      }); 
+    }
+    item.appendChild(span);
+
+    // Make the whole item draggable in edit mode (for reordering)
+    if (isEditModeActive && !isFavoritesView) { 
+      item.draggable = true;
+      item.addEventListener('dragstart', handleDragStart);
+      item.addEventListener('dragend', handleDragEnd);
+    }
+    gridElement.appendChild(item);
+  }); // End bookmarks.forEach
+
+  // Add delegated listeners to the grid for editing title/icon
+  if (isEditModeActive) {
+      gridElement.addEventListener('click', handleGridEditClick); // Handles icon clicks
+      gridElement.addEventListener('blur', handleGridEditBlur, true); // Use capture phase for blur on title spans
+      // Add keydown listener for Enter key on titles
+      gridElement.addEventListener('keydown', handleGridEditKeydown, true); 
+  } else {
+      // Remove delegated listeners when not in edit mode
+      gridElement.removeEventListener('click', handleGridEditClick);
+      gridElement.removeEventListener('blur', handleGridEditBlur, true);
+      gridElement.removeEventListener('keydown', handleGridEditKeydown, true);
+  }
+
+  // Event listeners for dragover/drop remain on the gridElement
+  if (isEditModeActive && !isFavoritesView) {
+    // Ensure these are attached (should be okay from previous code)
+    if (!gridElement.hasAttribute('data-dnd-listeners-attached')) {
+         gridElement.addEventListener('dragover', handleDragOver);
+         gridElement.addEventListener('dragleave', handleDragLeave);
+         gridElement.addEventListener('drop', handleDrop);
+         gridElement.setAttribute('data-dnd-listeners-attached', 'true');
+     }
+  } else {
+    // Remove DND listeners if not in edit mode
+    gridElement.removeEventListener('dragover', handleDragOver);
+    gridElement.removeEventListener('dragleave', handleDragLeave);
+    gridElement.removeEventListener('drop', handleDrop);
+    gridElement.removeAttribute('data-dnd-listeners-attached');
+  }
+}
+
+function renderTopSitesGrid(container, topSites, isEditModeActive = false) {
+  console.log('[Tabvana] renderTopSitesGrid called.');
+  if (topSites) console.log(`[Tabvana] renderTopSitesGrid topSites count: ${topSites.length}`);
+  const gridElement = container.querySelector('.top-sites-grid') || createGrid(container, false, true);
+  gridElement.innerHTML = ''; 
+  topSites.forEach(site => {
+    const item = document.createElement('a');
+    item.href = site.url;
+    item.target = "_blank";
+    item.rel = "noopener noreferrer";
+    item.className = 'bookmark-item top-site-item'; 
+    item.dataset.topSiteUrl = site.url;
+
+    // --- Restore detailed Icon Loading Logic for Top Sites --- 
+    const img = document.createElement('img');
+    const googleFaviconBase = 'https://www.google.com/s2/favicons?sz=64&domain_url=';
+    const localFallbackSrc = chrome.runtime.getURL('assets/icons/default-favicon.png');
+    const domainUrl = site.url; 
+
+    img.alt = (site.title || "Site") + " icon";
+    let primaryIconSrc = site.favicon; // Top sites might provide a favicon URL directly
+
+    const setLocalFallback = () => {
+      if (img.src !== localFallbackSrc) {
+        console.log(`[Tabvana ICON] Setting local fallback for TOP SITE ${domainUrl}`);
+        img.src = localFallbackSrc;
+        img.onerror = null; 
+        img.onload = null;
+      }
+    };
+
+    const tryGoogleFaviconService = () => {
+      const googleSrc = googleFaviconBase + encodeURIComponent(domainUrl);
+      console.log(`[Tabvana ICON] Trying Google Favicon service for TOP SITE ${domainUrl}: ${googleSrc}`);
+      img.src = googleSrc;
+      img.onload = () => {
+        if (!img.complete || typeof img.naturalWidth === "undefined" || img.naturalWidth === 0 || img.naturalWidth < 32) { 
+          console.log(`[Tabvana ICON] Google Favicon for TOP SITE ${domainUrl} invalid/tiny. Setting fallback.`);
+          setLocalFallback();
+        } else {
+          console.log(`[Tabvana ICON] Google Favicon for TOP SITE ${domainUrl} loaded successfully.`);
+          img.onload = null;
+          }
+      };
+      img.onerror = () => {
+        console.log(`[Tabvana ICON] Error loading Google Favicon for TOP SITE ${domainUrl}. Setting fallback.`);
+        setLocalFallback();
+      };
+    };
+
+    if (primaryIconSrc) {
+      console.log(`[Tabvana ICON] Trying primary (API) icon for TOP SITE ${domainUrl}: ${primaryIconSrc}`);
+      img.src = primaryIconSrc;
+      img.onload = () => {
+         if (!img.complete || typeof img.naturalWidth === "undefined" || img.naturalWidth === 0 || img.naturalWidth <= 2) {
+            console.log(`[Tabvana ICON] Primary TOP SITE icon ${primaryIconSrc} invalid/tiny. Trying Google Service.`);
+            tryGoogleFaviconService();
+          } else {
+            console.log(`[Tabvana ICON] Primary TOP SITE icon ${primaryIconSrc} loaded successfully.`);
+            img.onload = null;
+          }
+      };
+      img.onerror = () => {
+        console.log(`[Tabvana ICON] Error loading primary TOP SITE icon ${primaryIconSrc}. Trying Google Service.`);
+        tryGoogleFaviconService();
+      };
+    } else {
+      // No API-provided favicon, try Google service directly
+      tryGoogleFaviconService();
+    }
+    // --- End Icon Loading Logic ---
+
+    item.appendChild(img);
+
+    const span = document.createElement('span');
+    span.textContent = site.title || site.url;
+    item.appendChild(span);
+    gridElement.appendChild(item);
+  });
+}
+
+function renderCurrentView() {
+  console.log(`[Tabvana] renderCurrentView called. CurrentView: ${currentView}`);
+  const container = document.getElementById('bookmark-grid-container');
+  if (!container) {
+    console.error('[Tabvana] renderCurrentView: bookmark-grid-container not found!');
+    return;
+  }
+  container.innerHTML = ''; 
+
+  switch (currentView) {
+    case 'category':
+      if (currentCategory && currentCategory.bookmarks) {
+        renderBookmarkGrid(container, currentCategory.bookmarks, false, currentCategory.id, isEditMode);
+      } else {
+        renderEmptyState(container, "Category empty or not found.");
+      }
+      break;
+    case 'favorites':
+      const favorites = getAllFavoriteBookmarks();
+      renderBookmarkGrid(container, favorites, true, null, isEditMode);
+      break;
+    case 'search':
+      if (currentSearchResults && currentSearchResults.length > 0) {
+        renderBookmarkGrid(container, currentSearchResults, false, null, isEditMode); 
+      } else {
+        renderEmptyState(container, "No search results.");
+      }
+      break;
+    case 'initial':
+    default:
+      console.log(`[Tabvana] renderCurrentView - Case 'initial' (default). showTopSites: ${tabvanaData.showTopSites}, topSitesCache count: ${topSitesCache ? topSitesCache.length : '0 or undefined'}`);
+      if (tabvanaData.showTopSites && topSitesCache && topSitesCache.length > 0) {
+        // --- Add Header for Top Sites --- 
+        const topSitesHeader = document.createElement('h3');
+        topSitesHeader.textContent = 'Most Visited';
+        topSitesHeader.className = 'grid-section-header';
+        container.appendChild(topSitesHeader); // Append header to the main container first
+        // --- End Header ---
+        renderTopSitesGrid(container, topSitesCache, isEditMode); // Now render the grid itself
+      } else {
+        if (!tabvanaData.showTopSites) {
+          renderEmptyState(container, "Top Sites are disabled. You can enable them in Settings.");
+        } else if (!topSitesCache || topSitesCache.length === 0) {
+          renderEmptyState(container, "No Top Sites to display. They will appear as you browse.");
+        } else {
+           renderEmptyState(container, "Welcome! Select a category or add bookmarks via Settings.");
+        }
+      }
+      break;
+  }
+}
+
+// --- Drag and Drop Handlers ---
+function handleDragStart(event) {
+  if (!isEditMode) return;
+  const target = event.target.closest('.bookmark-item');
+  if (!target) return;
+
+  draggedItemData = {
+    bookmarkId: target.dataset.bookmarkId,
+    categoryId: target.dataset.categoryId,
+    // originalIndex: Array.from(target.parentNode.children).indexOf(target) // Might not be reliable if grid changes
+  };
+  event.dataTransfer.setData('text/plain', draggedItemData.bookmarkId); // Necessary for Firefox
+  event.dataTransfer.effectAllowed = 'move';
+  target.classList.add('dragging');
+  console.log('[Tabvana DND] Drag Start:', draggedItemData);
+}
+
+function handleDragEnd(event) {
+  if (!isEditMode) return;
+  const target = event.target.closest('.bookmark-item');
+  if (target) {
+    target.classList.remove('dragging');
+  }
+  document.querySelectorAll('.drag-over-target').forEach(el => el.classList.remove('drag-over-target'));
+  draggedItemData = null;
+  console.log('[Tabvana DND] Drag End');
+}
+
+function handleDragOver(event) {
+  event.preventDefault(); // Necessary to allow dropping
+  if (!isEditMode || !draggedItemData) return;
+  event.dataTransfer.dropEffect = 'move';
+
+  const targetItem = event.target.closest('.bookmark-item');
+  document.querySelectorAll('.drag-over-target').forEach(el => el.classList.remove('drag-over-target'));
+
+  if (targetItem && targetItem.dataset.bookmarkId !== draggedItemData.bookmarkId) {
+    targetItem.classList.add('drag-over-target');
+  } else if (!targetItem && event.currentTarget.classList.contains('bookmark-grid')) {
+    // If dragging over the grid container but not a specific item (e.g., to the end)
+    // We could add a class to the grid container itself or a placeholder element
+    // For now, we'll rely on dropping ON an item to determine position.
+  }
+}
+
+function handleDragLeave(event) {
+  if (!isEditMode) return;
+  const relatedTarget = event.relatedTarget;
+  const currentTarget = event.currentTarget;
+
+  // Only remove drag-over-target if leaving the grid or entering a non-bookmark-item child
+  if (!currentTarget.contains(relatedTarget) || (relatedTarget && !relatedTarget.closest('.bookmark-item'))) {
+    document.querySelectorAll('.drag-over-target').forEach(el => el.classList.remove('drag-over-target'));
+  }
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  if (!isEditMode || !draggedItemData) return;
+
+  const targetItem = event.target.closest('.bookmark-item');
+  document.querySelectorAll('.drag-over-target').forEach(el => el.classList.remove('drag-over-target'));
+
+  const sourceCategoryId = draggedItemData.categoryId;
+  const sourceBookmarkId = draggedItemData.bookmarkId;
+
+  if (!sourceCategoryId || !sourceBookmarkId) {
+    console.error('[Tabvana DND] Missing source category or bookmark ID.');
+    draggedItemData = null;
+    return;
+  }
+
+  const category = tabvanaData.categories.find(c => c.id === sourceCategoryId);
+  if (!category || !category.bookmarks) {
+    console.error('[Tabvana DND] Source category not found or has no bookmarks.');
+    draggedItemData = null;
+    return;
+  }
+
+  const draggedBookmarkIndex = category.bookmarks.findIndex(b => b.id === sourceBookmarkId);
+  if (draggedBookmarkIndex === -1) {
+    console.error('[Tabvana DND] Dragged bookmark not found in source category.');
+    draggedItemData = null;
+    return;
+  }
+
+  const [draggedBookmark] = category.bookmarks.splice(draggedBookmarkIndex, 1);
+
+  if (targetItem && targetItem.dataset.bookmarkId !== sourceBookmarkId) {
+    const targetBookmarkId = targetItem.dataset.bookmarkId;
+    const targetIndex = category.bookmarks.findIndex(b => b.id === targetBookmarkId);
+    if (targetIndex !== -1) {
+      // Determine if dropping before or after target based on mouse position relative to target's midpoint?
+      // For simplicity, let's insert before the target for now.
+      // A more refined approach: check event.clientY against targetItem.getBoundingClientRect().top + targetItem.offsetHeight / 2
+      const rect = targetItem.getBoundingClientRect();
+      const isAfter = event.clientY > rect.top + rect.height / 2;
+      if (isAfter) {
+        category.bookmarks.splice(targetIndex + 1, 0, draggedBookmark);
+      } else {
+        category.bookmarks.splice(targetIndex, 0, draggedBookmark);
+      }
+    } else {
+      // Target item not in the same category's current bookmark list (should not happen if logic is correct)
+      // Fallback: add to end
+      category.bookmarks.push(draggedBookmark);
+    }
+  } else {
+    // Dropped on itself (should be caught by !== sourceBookmarkId) or in an empty area of the grid
+    // Add to the end if not dropped on a specific valid target
+    category.bookmarks.push(draggedBookmark);
+  }
+
+  console.log(`[Tabvana DND] Dropped ${sourceBookmarkId} in category ${sourceCategoryId}. New order:`, category.bookmarks);
+  saveData();
+  renderCurrentView(); // Re-render to show new order and clear draggable states etc.
+  draggedItemData = null;
+}
+
+function renderEmptyState(container, message) {
+  console.log(`[Tabvana] renderEmptyState called for container ${container?.id} with message: "${message}"`);
+  if (!container) return;
+  container.innerHTML = `<p class="empty-grid-message">${message}</p>`;
+}
+
+// --- NEW: Delegated Event Handlers for Edit Mode ---
+
+function handleGridEditClick(event) {
+    // Check if the click was on an editable icon
+    const iconElement = event.target.closest('.editable-icon');
+    if (iconElement) {
+        const itemElement = iconElement.closest('.bookmark-item');
+        if (itemElement) {
+            event.preventDefault(); // Prevent link navigation
+            const bookmarkId = itemElement.dataset.bookmarkId;
+            const categoryId = itemElement.dataset.categoryId;
+            if (bookmarkId && categoryId) {
+                console.log(`[Tabvana Edit] Icon clicked for BM: ${bookmarkId} in Cat: ${categoryId}`);
+                handleEditBookmarkIcon(categoryId, bookmarkId); 
+            }
+        }
+    }
+    // Could add checks for other clickable elements in edit mode here
+}
+
+function handleGridEditBlur(event) {
+    // Check if the blur event happened on an editable title span
+    const titleElement = event.target.closest('.editable-title');
+    if (titleElement && titleElement.isContentEditable) { 
+        const itemElement = titleElement.closest('.bookmark-item');
+        if (itemElement) {
+            const bookmarkId = itemElement.dataset.bookmarkId;
+            const categoryId = itemElement.dataset.categoryId;
+            const newTitle = titleElement.textContent.trim();
+
+            if (bookmarkId && categoryId) {
+                console.log(`[Tabvana Edit] Title blurred for BM: ${bookmarkId} in Cat: ${categoryId}. New title: "${newTitle}"`);
+                // Find the bookmark and update if the title actually changed
+                const category = tabvanaData.categories.find(c => c.id === categoryId);
+                if (category && category.bookmarks) {
+                    const bookmark = category.bookmarks.find(b => b.id === bookmarkId);
+                    if (bookmark && bookmark.title !== newTitle && newTitle) { // Save only if changed and not empty
+                        bookmark.title = newTitle;
+                        saveData(); // Save the change
+                        console.log(`[Tabvana Edit] Title updated and saved for BM: ${bookmarkId}`);
+                        // Maybe add visual feedback?
+                    } else if (!newTitle) {
+                        // Title was cleared, revert maybe? Or handle as error?
+                        console.warn(`[Tabvana Edit] Title was cleared for BM: ${bookmarkId}. Reverting.`);
+                        titleElement.textContent = bookmark.title; // Revert
+                    }
+                }
+            }
+        }
+    }
+}
+
+function handleGridEditKeydown(event) {
+    // Check if Enter key was pressed on an editable title
+    const titleElement = event.target.closest('.editable-title');
+    if (titleElement && titleElement.isContentEditable && event.key === 'Enter') {
+        event.preventDefault(); // Prevent adding a newline
+        titleElement.blur(); // Trigger the blur event to save the title
+    }
+}
+
