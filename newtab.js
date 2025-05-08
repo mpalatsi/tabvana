@@ -118,56 +118,38 @@ async function handleToggleFavorite(categoryId, bookmarkId) {
 function handleBookmarkGridClick(event) {
   const clickedItem = event.target.closest('.bookmark-item');
   
-  // If the click wasn't inside a bookmark item at all, do nothing here.
   if (!clickedItem) {
-    console.log("[handleBookmarkGridClick] Click outside a bookmark item.");
-    return;
+    return; // Click was outside a bookmark item
   }
 
-  // Click IS inside a bookmark item. Now check edit mode.
-  const favoriteButton = event.target.closest('.favorite-toggle-button');
-
+  // If in edit mode, handle potential favorite toggle or prevent navigation
   if (isEditMode) {
-    console.log("[handleBookmarkGridClick] Edit mode is active.");
-    // If the click was specifically on the favorite button, handle it.
-    if (favoriteButton) {
-      console.log("[handleBookmarkGridClick] Favorite toggle clicked in edit mode.");
-      event.preventDefault(); // Prevent link nav even for fav button
-      const bookmarkId = clickedItem.dataset.bookmarkId;
-      const categoryId = clickedItem.dataset.categoryId;
-      if (bookmarkId && categoryId) {
-        handleToggleFavorite(categoryId, bookmarkId);
-      }
-      return; // Handled favorite toggle
-    }
+    const favoriteButton = event.target.closest('.favorite-toggle-button');
 
-    // For ANY other click within the bookmark item (icon, title, background) 
-    // while in edit mode, prevent the default link navigation.
-    // Specific edit actions (like icon modal, title blur) are handled by 
-    // separate delegated listeners (handleGridEditClick, handleGridEditBlur).
-    console.log("[handleBookmarkGridClick] Preventing default link navigation for item click in edit mode.");
-    event.preventDefault();
-    // No return here, event might bubble further if needed, but default is prevented.
-
-  } else {
-    // --- NOT in Edit Mode --- 
-    console.log("[handleBookmarkGridClick] Edit mode is NOT active.");
-    // If the click was on the favorite button, handle it and prevent navigation.
     if (favoriteButton) {
-      console.log("[handleBookmarkGridClick] Favorite toggle clicked in normal mode.");
-      event.preventDefault(); // Prevent link nav for fav button
+      // Click was on the favorite button (only visible in edit mode now)
+      event.preventDefault(); // Prevent link navigation
       const bookmarkId = clickedItem.dataset.bookmarkId;
       const categoryId = clickedItem.dataset.categoryId;
       if (bookmarkId && categoryId) {
         handleToggleFavorite(categoryId, bookmarkId);
       } else {
-        console.warn("[handleBookmarkGridClick] Missing bookmarkId or categoryId on toggle button.");
+        console.warn("[handleBookmarkGridClick] Missing bookmarkId or categoryId on fav toggle in edit mode.");
       }
-    } else {
-      // Click was within the item but not on the favorite button - allow default link navigation.
-      console.log("[handleBookmarkGridClick] Item click (not fav toggle) in normal mode - allowing navigation.");
+      return; // Action handled (favorite toggle)
     }
+
+    // If click was on other parts of the bookmark item in edit mode (icon, title, etc.),
+    // prevent default link navigation. Specific edit actions (icon/title edits)
+    // are handled by other delegated listeners (handleGridEditClick, handleGridEditBlur).
+    event.preventDefault(); 
+    // console.log("[handleBookmarkGridClick] Preventing default link navigation for item click in edit mode.");
+    return; // Prevent further processing of this click for navigation
   }
+
+  // If NOT in edit mode, default behavior is to navigate. 
+  // The favorite button is not visible, so no need to check for it here.
+  // console.log("[handleBookmarkGridClick] Normal mode click, allowing default navigation.");
 }
 
 // === Helper to get all favorite bookmarks ===
@@ -318,6 +300,7 @@ let editModeToggleButton = null; // Will be assigned in renderCategoriesBar
 // --- Search Elements ---
 let searchForm = null;
 let searchInput = null;
+let searchSuggestionsContainer = null; // For auto-fill
 
 let draggedItemData = null; // To store { categoryId, bookmarkId, originalIndex }
 
@@ -403,6 +386,7 @@ function assignDOMElements() {
   searchInput = document.getElementById('search-input');
   greetingDisplayElement = document.getElementById('greeting-display');
   bookmarkGridContainer = document.getElementById('bookmark-grid-container');
+  searchSuggestionsContainer = document.getElementById('search-suggestions-container'); // Assign new DOM element
 }
 
 function checkDOMElements() {
@@ -419,6 +403,7 @@ function checkDOMElements() {
     importModalOverlay, importModal, importFolderList, importSelectAllButton, importSelectNoneButton, importConfirmButton, importCancelButton,
     // --- Check Edit Mode Elements ---
     // editModeToggleButton 
+    searchForm, searchInput, searchSuggestionsContainer // Check suggestion container
   ];
   if (elements.some(el => !el)) {
     console.error('One or more core page elements not found! Check IDs.');
@@ -536,6 +521,16 @@ function setupEventListeners() {
   // --- Search Form Submission ---
   if (searchForm && searchInput) {
     searchForm.addEventListener('submit', handleSearchSubmit);
+    searchInput.addEventListener('input', handleSearchInput);
+    searchInput.addEventListener('keydown', handleSearchKeydown); // For keyboard navigation
+    searchInput.addEventListener('blur', () => { 
+      // Delay hiding to allow click on suggestion to register
+      setTimeout(() => searchSuggestionsContainer.style.display = 'none', 150);
+    });
+    searchSuggestionsContainer.addEventListener('mousedown', (event) => {
+      // Prevent blur event on searchInput if click is on a suggestion item
+      event.preventDefault();
+    });
   } else {
     console.warn("Search form elements not found, cannot add submit listener.");
   }
@@ -660,7 +655,166 @@ function handleSearchSubmit(event) {
         // Optionally, fallback to a default engine or show an error
         alert(`Error: Could not find settings for search engine: ${engineKey}`);
     }
+  searchInput.value = ''; // Clear search input after submission
+  searchSuggestionsContainer.style.display = 'none'; // Hide suggestions
 }
+
+// --- NEW: Search Auto-fill Logic ---
+let suggestionSources = [];
+let activeSuggestionIndex = -1;
+let debounceTimer = null; // For debouncing API calls
+
+function generateSuggestionSources() {
+  const sources = new Set(); // Use a Set to avoid duplicates
+
+  // 1. Category Names
+  tabvanaData.categories.forEach(category => {
+    if (category.name) sources.add(category.name.toLowerCase());
+    // 2. Bookmark Titles within categories
+    if (category.bookmarks) {
+      category.bookmarks.forEach(bookmark => {
+        if (bookmark.title) sources.add(bookmark.title.toLowerCase());
+      });
+    }
+  });
+
+  // 3. Top Sites Titles (if available and enabled)
+  if (tabvanaData.showTopSites && topSitesCache && topSitesCache.length > 0) {
+    topSitesCache.forEach(site => {
+      if (site.title) sources.add(site.title.toLowerCase());
+    });
+  }
+  suggestionSources = Array.from(sources);
+  console.log('[Tabvana] Suggestion sources generated:', suggestionSources.length);
+}
+
+async function handleSearchInput(event) { // Made async to use await for fetch
+  const query = event.target.value.toLowerCase().trim();
+  
+  // Clear previous debounce timer
+  clearTimeout(debounceTimer);
+
+  if (query.length < 1) { // Minimum characters to trigger suggestions
+    searchSuggestionsContainer.style.display = 'none';
+    searchSuggestionsContainer.innerHTML = '';
+    activeSuggestionIndex = -1;
+    return;
+  }
+
+  // Ensure local suggestionSources is populated
+  if (suggestionSources.length === 0) {
+    generateSuggestionSources();
+  }
+
+  const localSuggestions = suggestionSources.filter(source => source.includes(query));
+
+  // Debounce the API call
+  debounceTimer = setTimeout(async () => {
+    let webSuggestions = [];
+    if (query.length > 0) { // Only fetch if query is not empty after debounce
+      try {
+        // Ask background script to fetch DDG suggestions
+        const response = await new Promise((resolve) => {
+          chrome.runtime.sendMessage(
+            { action: "fetchDdgSuggestions", query: query },
+            (messageResponse) => {
+              if (chrome.runtime.lastError) {
+                // Handle errors like the background script not being available
+                console.error('[Tabvana] Error sending message to background:', chrome.runtime.lastError.message);
+                resolve({ success: false, error: chrome.runtime.lastError.message });
+                return;
+              }
+              resolve(messageResponse);
+            }
+          );
+        });
+
+        if (response && response.success && response.data) {
+          webSuggestions = response.data.map(item => item.phrase.toLowerCase());
+          console.log('[Tabvana] DDG Suggestions from background:', webSuggestions);
+        } else {
+          console.warn('[Tabvana] Failed to fetch DDG suggestions via background or no data:', response ? response.error : 'No response');
+        }
+      } catch (error) {
+        // This catch might be for errors in processing the response, 
+        // or if the Promise from sendMessage itself rejects (less common with callback pattern)
+        console.error('[Tabvana] Error processing DDG suggestions response from background:', error);
+      }
+    }
+
+    // Combine local and web suggestions, ensuring uniqueness and limiting total
+    const combined = new Set([...localSuggestions, ...webSuggestions]);
+    const finalSuggestions = Array.from(combined).slice(0, 10); // Limit to 10 total suggestions
+
+    displaySuggestions(finalSuggestions);
+  }, 300); // 300ms debounce delay
+}
+
+function displaySuggestions(suggestions) {
+  searchSuggestionsContainer.innerHTML = ''; // Clear previous suggestions
+  if (suggestions.length === 0) {
+    searchSuggestionsContainer.style.display = 'none';
+    activeSuggestionIndex = -1;
+    return;
+  }
+
+  suggestions.forEach((suggestionText, index) => {
+    const item = document.createElement('div');
+    item.className = 'suggestion-item';
+    item.textContent = suggestionText;
+    // Capitalize first letter for display (optional)
+    item.textContent = suggestionText.charAt(0).toUpperCase() + suggestionText.slice(1);
+
+    item.addEventListener('click', () => {
+      searchInput.value = item.textContent; // Use the displayed (capitalized) text
+      searchSuggestionsContainer.style.display = 'none';
+      searchSuggestionsContainer.innerHTML = '';
+      activeSuggestionIndex = -1;
+      searchForm.requestSubmit(); // Programmatically submit the form
+    });
+    searchSuggestionsContainer.appendChild(item);
+  });
+  searchSuggestionsContainer.style.display = 'block';
+  activeSuggestionIndex = -1; // Reset active suggestion index
+}
+
+function handleSearchKeydown(event) {
+  const items = searchSuggestionsContainer.querySelectorAll('.suggestion-item');
+  if (items.length === 0 || searchSuggestionsContainer.style.display === 'none') return;
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    activeSuggestionIndex = (activeSuggestionIndex + 1) % items.length;
+    updateActiveSuggestion(items);
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    activeSuggestionIndex = (activeSuggestionIndex - 1 + items.length) % items.length;
+    updateActiveSuggestion(items);
+  } else if (event.key === 'Enter') {
+    if (activeSuggestionIndex > -1 && items[activeSuggestionIndex]) {
+      event.preventDefault(); // Prevent form submit if we are selecting a suggestion
+      items[activeSuggestionIndex].click(); // Simulate click on the active suggestion
+    } 
+    // If no suggestion is active, Enter will submit the form normally (handled by form submit event)
+  } else if (event.key === 'Escape') {
+    searchSuggestionsContainer.style.display = 'none';
+    activeSuggestionIndex = -1;
+  }
+}
+
+function updateActiveSuggestion(items) {
+  items.forEach((item, index) => {
+    if (index === activeSuggestionIndex) {
+      item.classList.add('active-suggestion');
+      // Optional: Scroll into view
+      item.scrollIntoView({ block: 'nearest' });
+      searchInput.value = item.textContent; // Update search bar as user navigates
+    } else {
+      item.classList.remove('active-suggestion');
+    }
+  });
+}
+// --- END: Search Auto-fill Logic ---
 
 // --- Data Persistence ---
 async function saveData() {
@@ -1527,21 +1681,24 @@ function closeIconSearchModal() {
 function toggleEditMode() {
   isEditMode = !isEditMode;
   console.log(`[Tabvana] Edit mode toggled: ${isEditMode}`);
-  document.body.classList.toggle('edit-mode-active', isEditMode);
+  
+  if (document.body) {
+    document.body.classList.toggle('edit-mode-active', isEditMode);
+    console.log(`[Tabvana] Body class 'edit-mode-active' set to: ${document.body.classList.contains('edit-mode-active')}`);
+  } else {
+    console.error('[Tabvana] toggleEditMode: document.body not found!');
+  }
 
   // Update the button's title hint
   if (editModeToggleButton) { 
-    if (isEditMode) {
-      editModeToggleButton.title = "Exit Edit Mode & Save Changes";
-      // Change icon appearance or button background via CSS class body.edit-mode-active
-      // No need to change icon src if we style the button background based on body class
-    } else {
-      editModeToggleButton.title = "Toggle Edit Mode";
+    editModeToggleButton.title = isEditMode ? "Exit Edit Mode & Save Changes" : "Toggle Edit Mode";
+    // Visual state of editModeToggleButton itself is handled by CSS: body.edit-mode-active .edit-mode-button
+    if (!isEditMode) {
       // Save any pending changes when exiting edit mode
       saveData();
     }
   } else {
-    console.error('[Tabvana] ToggleEditMode: Edit mode button not found!');
+    console.error('[Tabvana] ToggleEditMode: editModeToggleButton element not found!');
   }
 
   // Re-render grids to apply/remove draggable attributes etc.
@@ -1605,15 +1762,26 @@ function renderBookmarkGrid(container, bookmarks, isFavoritesView = false, curre
     item.rel = "noopener noreferrer";
     item.className = 'bookmark-item';
     item.dataset.bookmarkId = bookmark.id;
-    if (currentCategoryId) {
+
+    if (isFavoritesView && bookmark.categoryId) {
+      // For favorites view, the categoryId comes from the bookmark object itself
+      item.dataset.categoryId = bookmark.categoryId;
+    } else if (currentCategoryId) {
+      // For regular category view, it comes from the function parameter
       item.dataset.categoryId = currentCategoryId;
     }
 
     const favButton = document.createElement('button');
-    favButton.textContent = bookmark.isFavorite ? '★' : '☆';
     favButton.title = bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites';
     favButton.className = 'favorite-toggle-button';
-    favButton.onclick = () => handleToggleFavorite(currentCategoryId, bookmark.id);
+    if (bookmark.isFavorite) {
+      favButton.classList.add('is-favorite');
+      favButton.textContent = '★'; // Filled star
+    } else {
+      favButton.classList.remove('is-favorite');
+      favButton.textContent = '☆'; // Empty star
+    }
+    // Click handling is now fully delegated to handleBookmarkGridClick
 
     item.appendChild(favButton);
 
@@ -1831,45 +1999,66 @@ function renderCurrentView() {
   container.innerHTML = ''; 
 
   switch (currentView) {
-    case 'category':
+    case 'category': {
       if (currentCategory && currentCategory.bookmarks) {
         renderBookmarkGrid(container, currentCategory.bookmarks, false, currentCategory.id, isEditMode);
       } else {
         renderEmptyState(container, "Category empty or not found.");
       }
       break;
-    case 'favorites':
+    }
+    case 'favorites': {
       const favorites = getAllFavoriteBookmarks();
       renderBookmarkGrid(container, favorites, true, null, isEditMode);
       break;
-    case 'search':
+    }
+    case 'search': {
       if (currentSearchResults && currentSearchResults.length > 0) {
         renderBookmarkGrid(container, currentSearchResults, false, null, isEditMode); 
       } else {
         renderEmptyState(container, "No search results.");
       }
       break;
+    }
     case 'initial':
-    default:
+    default: {
       console.log(`[Tabvana] renderCurrentView - Case 'initial' (default). showTopSites: ${tabvanaData.showTopSites}, topSitesCache count: ${topSitesCache ? topSitesCache.length : '0 or undefined'}`);
+      let contentRendered = false;
       if (tabvanaData.showTopSites && topSitesCache && topSitesCache.length > 0) {
-        // --- Add Header for Top Sites --- 
         const topSitesHeader = document.createElement('h3');
         topSitesHeader.textContent = 'Most Visited';
         topSitesHeader.className = 'grid-section-header';
-        container.appendChild(topSitesHeader); // Append header to the main container first
-        // --- End Header ---
-        renderTopSitesGrid(container, topSitesCache, isEditMode); // Now render the grid itself
-      } else {
-        if (!tabvanaData.showTopSites) {
-          renderEmptyState(container, "Top Sites are disabled. You can enable them in Settings.");
-        } else if (!topSitesCache || topSitesCache.length === 0) {
-          renderEmptyState(container, "No Top Sites to display. They will appear as you browse.");
+        container.appendChild(topSitesHeader);
+        renderTopSitesGrid(container, topSitesCache, isEditMode);
+        contentRendered = true;
+      }
+
+      const favorites = getAllFavoriteBookmarks(); 
+      if (favorites && favorites.length > 0) {
+        const favoritesHeader = document.createElement('h3');
+        favoritesHeader.textContent = 'Favorites';
+        favoritesHeader.className = 'grid-section-header';
+        container.appendChild(favoritesHeader);
+        const favoritesGridContainer = document.createElement('div');
+        favoritesGridContainer.id = 'favorites-grid-specific-container';
+        container.appendChild(favoritesGridContainer);
+        renderBookmarkGrid(favoritesGridContainer, favorites, true, null, isEditMode);
+        contentRendered = true;
+      }
+
+      if (!contentRendered) {
+        if (!tabvanaData.showTopSites && (!favorites || favorites.length === 0)) {
+          renderEmptyState(container, "Top Sites are disabled and no favorites yet. Add some or enable Top Sites in Settings.");
+        } else if (!tabvanaData.showTopSites) {
+          renderEmptyState(container, "Top Sites are disabled. You can enable them in Settings or add Favorites.");
+        } else if (!favorites || favorites.length === 0) {
+          renderEmptyState(container, "No Top Sites or Favorites to display. They will appear as you browse or add them.");
         } else {
            renderEmptyState(container, "Welcome! Select a category or add bookmarks via Settings.");
         }
       }
       break;
+    }
   }
 }
 

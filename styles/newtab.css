@@ -750,6 +750,7 @@ body.light-theme .bookmark-item:hover {
 
 #search-form {
   display: inline-block; /* Allow centering */
+  position: relative; /* Added to be positioning context for suggestions */
 }
 
 #search-input {
@@ -808,6 +809,11 @@ body.light-theme #search-input:focus {
     padding: 2px; 
     line-height: 1;
     transition: color 0.2s ease, transform 0.2s ease;
+    display: none; /* Hidden by default */
+}
+
+body.edit-mode-active .favorite-toggle-button {
+    display: block; /* Or inline-block/flex depending on previous styling if any specific was needed */
 }
 
 body.dark-theme .favorite-toggle-button {
@@ -935,4 +941,90 @@ body.light-theme .bookmark-item.dragging {
 .bookmark-grid.drag-over-container {
   /* Example if we need to style the whole grid during drag over */
   /* background-color: rgba(0,0,0,0.05); */
+}
+
+/* --- Search Suggestions --- */
+#search-suggestions-container {
+  position: absolute;
+  top: 100%; /* Position below the search input (parent form) */
+  left: 0;
+  width: 100%; /* Match width of parent form */
+  box-sizing: border-box; /* Ensure padding/border are included in width */
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-top: none; /* Ensure seamless connection to search bar */
+  border-radius: 0 0 8px 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  display: none; /* Hidden by default */
+  text-align: left;
+}
+
+/* Custom Scrollbar for WebKit browsers */
+#search-suggestions-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+#search-suggestions-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 0 8px 8px 0; /* Match container rounding */
+}
+
+#search-suggestions-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+#search-suggestions-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #333333;
+  font-size: 0.9rem;
+  transition: background-color 0.15s ease-in-out; /* Smooth transition */
+}
+
+.suggestion-item:hover {
+  background-color: rgba(0, 123, 255, 0.15); /* Slightly more visible hover */
+}
+
+.suggestion-item.active-suggestion {
+  background-color: rgba(0, 123, 255, 0.25); /* Slightly more visible active */
+  font-weight: bold;
+}
+
+/* Dark theme adjustments */
+body.dark-theme #search-suggestions-container {
+  background-color: rgba(45, 45, 45, 0.97); /* Darker, slightly more opaque */
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: none; /* Ensure seamless for dark theme too */
+}
+
+body.dark-theme #search-suggestions-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-theme #search-suggestions-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+body.dark-theme #search-suggestions-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+body.dark-theme .suggestion-item {
+  color: #eeeeee;
+}
+
+body.dark-theme .suggestion-item:hover {
+  background-color: rgba(0, 123, 255, 0.25); /* Adjusted for dark theme */
+}
+
+body.dark-theme .suggestion-item.active-suggestion {
+  background-color: rgba(0, 123, 255, 0.35); /* Adjusted for dark theme */
 }

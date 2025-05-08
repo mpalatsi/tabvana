@@ -15,6 +15,9 @@
     "tabs",
     "topSites" 
   ],
+  "host_permissions": [
+    "https://duckduckgo.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
