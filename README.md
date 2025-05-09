@@ -31,6 +31,7 @@ Tabvana transforms your new tab page into a dynamic and customizable dashboard, 
 
 ![Tabvana Screenshot 2](assets/screenshots/image2.png)
 ![Tabvana Screenshot 3](assets/screenshots/image3.png)
+![Tabvana Screenshot 4](assets/screenshots/image4.png)
 
 ## 🚀 Installation & Usage
 
