@@ -731,19 +731,55 @@ function handleSearchSubmit(event) {
         return; // Don't search if input is empty
     }
 
-    const engineKey = tabvanaData.searchEngine; // Get from loaded data
-    const engine = SEARCH_ENGINES[engineKey];
+    // Attempt to parse as URL
+    let isUrl = false;
+    let potentialUrl = query;
 
-    if (engine) {
-        const searchUrl = engine.url.replace('{searchTerms}', encodeURIComponent(query));
-        console.log(`Performing search with ${engine.name}: ${searchUrl}`);
-        // Redirect the current tab to the search results page
-        window.location.href = searchUrl;
-    } else {
-        console.error(`Selected search engine key "${engineKey}" not found in SEARCH_ENGINES.`);
-        // Optionally, fallback to a default engine or show an error
-        alert(`Error: Could not find settings for search engine: ${engineKey}`);
+    try {
+        // Check if it looks like a domain name (basic check)
+        if (query.includes('.') && !query.includes(' ') && !query.startsWith('?')) {
+            // Add http:// if no scheme is present to allow URL parsing for domain-like inputs
+            if (!potentialUrl.startsWith('http://') && !potentialUrl.startsWith('https://')) {
+                potentialUrl = 'https://' + potentialUrl; // Default to https
+            }
+            const urlObject = new URL(potentialUrl);
+            if (urlObject.protocol === 'http:' || urlObject.protocol === 'https:') {
+                isUrl = true;
+            }
+        } else if (query.startsWith('localhost:') || query.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?($|\/.*$)/)) {
+            // Handle localhost or direct IP addresses (which might not have a dot in the host part for URL parser)
+             if (!potentialUrl.startsWith('http://') && !potentialUrl.startsWith('https://')) {
+                potentialUrl = 'http://' + potentialUrl; // Default to http for local/IP
+            }
+            const urlObject = new URL(potentialUrl);
+            // Check if parsing succeeded (protocol would be http/https)
+            if (urlObject.protocol === 'http:' || urlObject.protocol === 'https:') {
+                 isUrl = true;
+            }
+        }
+    } catch (_) {
+        // Not a valid URL format if parsing fails
+        isUrl = false;
     }
+
+    if (isUrl) {
+        console.log(`Navigating directly to URL: ${potentialUrl}`);
+        window.location.href = potentialUrl;
+    } else {
+        // Not a URL, proceed with search engine
+        const engineKey = tabvanaData.searchEngine; // Get from loaded data
+        const engine = SEARCH_ENGINES[engineKey];
+
+        if (engine) {
+            const searchUrl = engine.url.replace('{searchTerms}', encodeURIComponent(query));
+            console.log(`Performing search with ${engine.name}: ${searchUrl}`);
+            window.location.href = searchUrl;
+        } else {
+            console.error(`Selected search engine key "${engineKey}" not found in SEARCH_ENGINES.`);
+            alert(`Error: Could not find settings for search engine: ${engineKey}`);
+        }
+    }
+
   searchInput.value = ''; // Clear search input after submission
   searchSuggestionsContainer.style.display = 'none'; // Hide suggestions
 }
