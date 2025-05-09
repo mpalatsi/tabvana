@@ -300,6 +300,7 @@ let categoryListElement = null;
 let newCategoryNameInput = null;
 let addCategoryButton = null;
 let importFirefoxBookmarksButton = null;
+let pushTabvanaBookmarksButton = null; // New button variable
 
 // Bookmark Management Elements (Get references now)
 let bookmarkManagementSection = null;
@@ -383,6 +384,7 @@ function assignDOMElements() {
   newCategoryNameInput = document.getElementById('new-category-name');
   addCategoryButton = document.getElementById('add-category-button');
   importFirefoxBookmarksButton = document.getElementById('import-firefox-bookmarks-button');
+  pushTabvanaBookmarksButton = document.getElementById('push-tabvana-bookmarks-button'); // Assign new button
   // Bookmark Management
   bookmarkManagementSection = document.getElementById('bookmark-management-section');
   bookmarkSectionTitle = document.getElementById('bookmark-section-title');
@@ -446,7 +448,8 @@ function checkDOMElements() {
     forecastDisplay, forecastContent, forecastCloseButton, // Check forecast display elements
     // --- Check Custom Background Elements ---
     customBackgroundUrlInput, setCustomBackgroundButton, clearCustomBackgroundButton,
-    customBackgroundFileInput, chooseLocalFileButton, localFileNameDisplay
+    customBackgroundFileInput, chooseLocalFileButton, localFileNameDisplay,
+    pushTabvanaBookmarksButton // Check the new button
   ];
   if (elements.some(el => !el)) {
     console.error('One or more core page elements not found! Check IDs.');
@@ -569,6 +572,9 @@ function setupEventListeners() {
   // Category Management
   addCategoryButton.addEventListener('click', handleAddCategory);
   importFirefoxBookmarksButton.addEventListener('click', handleImportBookmarks);
+  if (pushTabvanaBookmarksButton) { // Add listener for push button
+    pushTabvanaBookmarksButton.addEventListener('click', handlePushBookmarksToBrowser);
+  }
   // Bookmark Management
   addBookmarkButton.addEventListener('click', handleAddBookmark);
   backToCategoriesButton.addEventListener('click', showCategoryManagement);
@@ -1632,25 +1638,29 @@ function handleConfirmImportSelection() {
 
 // --- New Function to Perform the Actual Selective Import ---
 async function performSelectiveImport(folderIds) {
-    console.log('Starting selective import for folders:', folderIds);
-    let importedBookmarkCount = 0;
+    console.log('Starting selective import/refresh for folders:', folderIds);
+    let importedBookmarkCountTotal = 0;
     let categoriesAdded = 0;
-    let categoriesMerged = 0;
-    let bookmarksToAdd = []; // Declare bookmarksToAdd here, outside the loop
+    let categoriesUpdated = 0; // Changed from categoriesMerged
+    let bookmarksAddedToExisting = 0;
+    let skippedDuplicateUrls = 0;
 
-    // Helper function to recursively extract bookmarks
+    // Helper remains the same
     async function extractBookmarksRecursive(folderNode, currentCategoryName, currentBookmarksArray) {
         if (!folderNode.children) return;
 
         for (const child of folderNode.children) {
             if (child.url && !child.url.startsWith('javascript:')) { 
                 currentBookmarksArray.push({
-                            id: generateId(),
+                            // Use browser bookmark ID temporarily if needed for mapping, or generate ours
+                            // id: child.id, // Potentially use browser ID for future sync?
+                            id: generateId(), // Stick with generating our own ID for now
                             title: child.title || 'Untitled Bookmark',
                             url: child.url,
-                            customIconUrl: null
+                            customIconUrl: null,
+                            // browserId: child.id // Optionally store browser ID
                         });
-                importedBookmarkCount++; // This can remain global to the outer function
+                // Note: importedBookmarkCountTotal is incremented later based on actual additions
             } else if (child.children) { 
                 console.log(`Processing sub-folder "${child.title}" within "${currentCategoryName}"`);
                 await extractBookmarksRecursive(child, currentCategoryName, currentBookmarksArray); // Pass the array along
@@ -1665,46 +1675,69 @@ async function performSelectiveImport(folderIds) {
             
             const folderNode = subTreeNodes[0]; 
             const categoryName = folderNode.title || 'Untitled Folder';
-            bookmarksToAdd = []; // Reset for each new top-level selected folder being processed
+            let browserBookmarksInFolder = []; // Array to hold bookmarks extracted from this browser folder
 
-            console.log(`Extracting bookmarks from selected folder: "${categoryName}" (ID: ${folderId})`);
-            await extractBookmarksRecursive(folderNode, categoryName, bookmarksToAdd); // Pass the fresh array
+            console.log(`Extracting bookmarks from selected browser folder: "${categoryName}" (ID: ${folderId})`);
+            await extractBookmarksRecursive(folderNode, categoryName, browserBookmarksInFolder); 
 
-            if (bookmarksToAdd.length > 0) {
-                let existingCategory = tabvanaData.categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+            if (browserBookmarksInFolder.length > 0) {
+                // Find existing category by EXACT name match
+                let existingCategory = tabvanaData.categories.find(c => c.name === categoryName);
 
                 if (existingCategory) {
-                    console.log(`Merging ${bookmarksToAdd.length} bookmarks into existing category "${categoryName}".`);
+                    console.log(`Refreshing existing category "${categoryName}".`);
                     const existingUrls = new Set(existingCategory.bookmarks.map(b => b.url));
-                    const uniqueNewBookmarks = bookmarksToAdd.filter(b => !existingUrls.has(b.url));
-                    if (uniqueNewBookmarks.length < bookmarksToAdd.length) {
-                         console.log(`Skipped ${bookmarksToAdd.length - uniqueNewBookmarks.length} duplicate bookmarks based on URL.`);
+                    let bookmarksAddedThisTime = 0;
+                    
+                    browserBookmarksInFolder.forEach(browserBookmark => {
+                        if (!existingUrls.has(browserBookmark.url)) {
+                            existingCategory.bookmarks.push(browserBookmark); // Add only if URL is new
+                            bookmarksAddedThisTime++;
+                            importedBookmarkCountTotal++; // Increment total count
+                            existingUrls.add(browserBookmark.url); // Add to set to prevent duplicates within the same import batch
+                        } else {
+                            skippedDuplicateUrls++;
+                        }
+                    });
+
+                    if (bookmarksAddedThisTime > 0) {
+                        categoriesUpdated++;
+                        bookmarksAddedToExisting += bookmarksAddedThisTime;
+                        console.log(`Added ${bookmarksAddedThisTime} new bookmarks to "${categoryName}".`);
                     }
-                    existingCategory.bookmarks = existingCategory.bookmarks.concat(uniqueNewBookmarks);
-                    if (uniqueNewBookmarks.length > 0) categoriesMerged++;
                 } else {
-                    console.log(`Adding new category "${categoryName}" with ${bookmarksToAdd.length} bookmarks.`);
+                    // Category does not exist, create it
+                    console.log(`Adding new category "${categoryName}" with ${browserBookmarksInFolder.length} bookmarks.`);
                     tabvanaData.categories.push({
                         id: generateId(),
                         name: categoryName,
-                        bookmarks: bookmarksToAdd
+                        bookmarks: browserBookmarksInFolder
                     });
                     categoriesAdded++;
+                    importedBookmarkCountTotal += browserBookmarksInFolder.length; // All are new
                 }
             } else {
-                console.log(`Selected folder "${categoryName}" (and its subfolders) contained no direct bookmarks to import or only duplicates.`);
+                console.log(`Selected folder "${categoryName}" (and its subfolders) contained no direct bookmarks to import.`);
             }
         }
 
-        if (categoriesAdded > 0 || categoriesMerged > 0) {
+        if (categoriesAdded > 0 || categoriesUpdated > 0) {
             renderCategoryManagementList();
             renderCategoriesBar();
             await saveData();
-            alert(`Import complete!\nBookmarks added/merged: ${importedBookmarkCount}\nNew categories created: ${categoriesAdded}\nCategories updated: ${categoriesMerged}`);
+            // Improved confirmation message
+            let message = `Refresh complete!
+New categories created: ${categoriesAdded}
+Existing categories updated: ${categoriesUpdated}
+New bookmarks added: ${importedBookmarkCountTotal}`; // Use total added count
+            if (skippedDuplicateUrls > 0) {
+                 message += `\n(Skipped ${skippedDuplicateUrls} bookmarks with duplicate URLs)`;
+            }
+            alert(message);
         } else {
-            alert('Import finished. No new bookmarks were added (folders might have been empty or contained only duplicates/subfolders).');
+            alert('Refresh finished. No new bookmarks or categories were added (folders might have been empty or contained only duplicates).');
         }
-        console.log('Selective bookmark import finished.');
+        console.log('Selective bookmark refresh finished.');
 
     } catch (error) {
         console.error('Error during selective bookmark import:', error);
@@ -2695,4 +2728,134 @@ async function handleFileSelected(event) {
   // Clear the input value so the same file can be selected again if needed
   // event.target.value = null; // Temporarily commented out to debug double-prompt
 }
+
+// === Bookmark Sync Logic ===
+
+// Helper to find or create the main sync folder
+async function findOrCreateTabvanaSyncFolder() {
+  const otherBookmarksId = '2'; // Standard ID for "Other Bookmarks"
+  const folderName = "Tabvana Synced";
+
+  try {
+    // Search for the folder directly under "Other Bookmarks"
+    const results = await chrome.bookmarks.getChildren(otherBookmarksId);
+    let syncFolder = results.find(node => node.title === folderName && !node.url); // Check it's a folder
+
+    if (syncFolder) {
+      console.log(`[Push Sync] Found existing folder "${folderName}" (ID: ${syncFolder.id})`);
+      return syncFolder.id;
+    } else {
+      console.log(`[Push Sync] Creating folder "${folderName}" under "Other Bookmarks".`);
+      const newFolder = await chrome.bookmarks.create({
+        parentId: otherBookmarksId,
+        title: folderName
+      });
+      console.log(`[Push Sync] Created folder "${folderName}" (ID: ${newFolder.id})`);
+      return newFolder.id;
+    }
+  } catch (error) {
+    console.error(`[Push Sync] Error finding or creating folder "${folderName}":`, error);
+    throw error; // Re-throw to be caught by the main handler
+  }
+}
+
+// Helper to find or create a category sub-folder
+async function findOrCreateCategoryFolder(parentFolderId, categoryName) {
+   try {
+    const results = await chrome.bookmarks.getChildren(parentFolderId);
+    let categoryFolder = results.find(node => node.title === categoryName && !node.url);
+
+    if (categoryFolder) {
+       return categoryFolder.id;
+    } else {
+       console.log(`[Push Sync] Creating category folder "${categoryName}" under parent ID ${parentFolderId}.`);
+       const newFolder = await chrome.bookmarks.create({
+           parentId: parentFolderId,
+           title: categoryName
+       });
+       return newFolder.id;
+    }
+   } catch (error) {
+       console.error(`[Push Sync] Error finding/creating category folder "${categoryName}":`, error);
+       throw error;
+   }
+}
+
+// Main handler function for the push button
+async function handlePushBookmarksToBrowser() {
+  if (!confirm("This will push your Tabvana categories and bookmarks to a folder named 'Tabvana Synced' in your browser's 'Other Bookmarks'. Existing bookmarks in that folder with the same URL will be skipped. Continue?")) {
+    return;
+  }
+
+  console.log('[Push Sync] Starting push to browser...');
+  let categoriesProcessed = 0;
+  let bookmarksCreated = 0;
+  let bookmarksSkipped = 0;
+
+  // Disable button during push?
+  if (pushTabvanaBookmarksButton) pushTabvanaBookmarksButton.disabled = true;
+  const originalButtonText = pushTabvanaBookmarksButton?.textContent;
+  if (pushTabvanaBookmarksButton) pushTabvanaBookmarksButton.textContent = 'Pushing...';
+
+
+  try {
+    const tabvanaFolderId = await findOrCreateTabvanaSyncFolder();
+
+    for (const category of tabvanaData.categories) {
+      console.log(`[Push Sync] Processing category: "${category.name}"`);
+      const categoryFolderId = await findOrCreateCategoryFolder(tabvanaFolderId, category.name);
+
+      if (category.bookmarks && category.bookmarks.length > 0) {
+        // Search for existing bookmarks in this target folder *once* for efficiency
+        let existingBrowserBookmarks = [];
+        try {
+            existingBrowserBookmarks = await chrome.bookmarks.getChildren(categoryFolderId);
+        } catch (e) {
+             console.warn(`[Push Sync] Could not get children for folder ${category.name} (ID: ${categoryFolderId}). Skipping bookmarks inside. Error:`, e);
+             continue; // Skip bookmarks for this category if folder reading fails
+        }
+        const existingUrlsInFolder = new Set(existingBrowserBookmarks.filter(b => b.url).map(b => b.url));
+        
+        for (const bookmark of category.bookmarks) {
+          if (existingUrlsInFolder.has(bookmark.url)) {
+            // Skip bookmark if URL already exists in the target browser folder
+            // console.log(`[Push Sync] Skipping bookmark "${bookmark.title}" (URL already exists in target folder).`);
+            bookmarksSkipped++;
+          } else {
+            // Create the bookmark in the browser
+            try {
+              console.log(`[Push Sync] Creating bookmark "${bookmark.title}" in folder "${category.name}".`);
+              await chrome.bookmarks.create({
+                parentId: categoryFolderId,
+                title: bookmark.title,
+                url: bookmark.url
+              });
+              bookmarksCreated++;
+            } catch (createError) {
+              console.error(`[Push Sync] Failed to create bookmark "${bookmark.title}":`, createError);
+              // Decide how to handle failures - skip or stop? Skipping for now.
+            }
+          }
+        }
+      }
+      categoriesProcessed++;
+    }
+
+    alert(`Push complete!\nCategories processed: ${categoriesProcessed}\nBrowser bookmarks created: ${bookmarksCreated}\nBookmarks skipped (URL existed): ${bookmarksSkipped}`);
+
+  } catch (error) {
+    console.error('[Push Sync] An error occurred during the push operation:', error);
+    alert('An error occurred during the push operation. Check the console for details.');
+  } finally {
+      // Re-enable button
+       if (pushTabvanaBookmarksButton) {
+           pushTabvanaBookmarksButton.disabled = false;
+           pushTabvanaBookmarksButton.textContent = originalButtonText;
+       }
+      console.log('[Push Sync] Push operation finished.');
+  }
+}
+
+// === Category & Bookmark Management Logic (Settings Panel) ===
+// ... existing code ...
 

@@ -133,7 +133,10 @@
     <!-- Category Management -->
     <div class="setting-section" id="category-management-section">
         <h3>Manage Categories</h3>
-        <button id="import-firefox-bookmarks-button" class="setting-item-button secondary">Import Chrome Bookmarks</button>
+        <div class="button-group" style="margin-bottom: 15px; display: flex; gap: 10px;">
+            <button id="import-firefox-bookmarks-button" class="setting-item-button secondary">Refresh from Browser</button>
+            <button id="push-tabvana-bookmarks-button" class="setting-item-button secondary">Push Tabvana to Browser</button>
+        </div>
         <ul id="category-list"></ul>
         <div class="add-category-form">
             <input type="text" id="new-category-name" placeholder="New category name">
