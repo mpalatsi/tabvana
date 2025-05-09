@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Tabvana",
   "version": "1.0.0",
-  "description": "Tabvana transforms your new tab into a personalized dashboard with icon-based bookmark management, collapsible categories, dynamic Unsplash backgrounds, time/date display, and user settings.",
+  "description": "Transform your new tab: icon bookmarks, collapsible categories, Unsplash/custom backgrounds, weather, time/date & settings.",
   "icons": {
     "128": "assets/icons/icon-128.png"
   },
